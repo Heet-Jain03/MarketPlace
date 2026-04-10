@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agent Marketplace</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; color: #222; font-size: 14px; }
+
+  header { background: #1a1a2e; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 12px; color: #aaa; }
+
+  .api-bar { background: #fff8e1; border-bottom: 1px solid #ffe082; padding: 10px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .api-bar label { font-size: 13px; font-weight: 500; }
+  .api-bar input { border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; font-size: 13px; width: 320px; }
+  .api-bar button { background: #1a1a2e; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+  .api-bar .saved { color: green; font-size: 12px; }
+
+  .layout { display: flex; height: calc(100vh - 88px); }
+
+  .sidebar { width: 240px; background: white; border-right: 1px solid #ddd; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-title { padding: 12px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; border-bottom: 1px solid #eee; }
+  .agent-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 10px; transition: background 0.15s; }
+  .agent-item:hover { background: #f8f8f8; }
+  .agent-item.active { background: #e8f0fe; border-left: 3px solid #1a73e8; }
+  .agent-item .icon { font-size: 20px; }
+  .agent-item .info .name { font-weight: 600; font-size: 13px; }
+  .agent-item .info .cat { font-size: 11px; color: #888; margin-top: 1px; }
+  .sidebar-section { padding: 10px 16px 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; border-top: 1px solid #eee; margin-top: 4px; }
+  .pipeline-item { padding: 9px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 8px; font-size: 13px; transition: background 0.15s; }
+  .pipeline-item:hover { background: #f8f8f8; }
+  .pipeline-item.active { background: #e8f0fe; border-left: 3px solid #1a73e8; }
+
+  .content { flex: 1; overflow-y: auto; padding: 24px; background: #f5f5f5; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .agent-header { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 16px; }
+  .agent-big-icon { font-size: 40px; }
+  .agent-header-info h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .agent-header-info .sub { color: #666; font-size: 13px; margin-bottom: 8px; }
+  .agent-header-info .desc { font-size: 13px; line-height: 1.6; color: #444; }
+  .badge { display: inline-block; background: #e8f0fe; color: #1a73e8; font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+
+  .tabs { display: flex; background: white; border: 1px solid #ddd; border-radius: 8px 8px 0 0; overflow: hidden; border-bottom: none; }
+  .tab { padding: 10px 18px; font-size: 13px; cursor: pointer; border-right: 1px solid #ddd; background: #fafafa; font-weight: 500; transition: background 0.15s; }
+  .tab:hover { background: #f0f0f0; }
+  .tab.active { background: white; color: #1a73e8; border-bottom: 2px solid #1a73e8; }
+  .tab-panel { background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; padding: 20px; margin-bottom: 16px; display: none; }
+  .tab-panel.active { display: block; }
+
+  .caps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .cap { background: #f0f0f0; border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #555; }
+
+  .code-block { background: #1e1e1e; color: #d4d4d4; border-radius: 6px; padding: 16px; font-family: "Courier New", monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  th { background: #f5f5f5; padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; border: 1px solid #ddd; }
+  td { padding: 8px 12px; border: 1px solid #ddd; font-size: 12px; vertical-align: top; }
+  .method { font-weight: 700; padding: 2px 8px; border-radius: 3px; font-size: 11px; }
+  .method.get { background: #e6f4ea; color: #137333; }
+  .method.post { background: #e8f0fe; color: #1a73e8; }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #444; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; border: 1px solid #ccc; border-radius: 4px; padding: 8px 10px; font-size: 13px; font-family: inherit; background: white; }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #1a73e8; }
+
+  .run-btn { background: #1a73e8; color: white; border: none; border-radius: 5px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .run-btn:hover { background: #1558b0; }
+  .run-btn:disabled { background: #aaa; cursor: not-allowed; }
+
+  .result-box { margin-top: 20px; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; display: none; }
+  .result-box.visible { display: block; }
+  .result-header { background: #1a1a2e; color: white; padding: 10px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .result-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: auto; }
+  .result-status.ok { background: #e6f4ea; color: #137333; }
+  .result-status.err { background: #fce8e6; color: #c5221f; }
+  .result-status.demo { background: #fff8e1; color: #e65100; }
+
+  .result-steps { display: flex; border-bottom: 1px solid #ddd; background: #fafafa; }
+  .result-step-tab { padding: 8px 16px; font-size: 12px; cursor: pointer; border-right: 1px solid #ddd; font-weight: 500; }
+  .result-step-tab.active { background: white; color: #1a73e8; font-weight: 700; border-bottom: 2px solid #1a73e8; }
+  .result-step-content { padding: 16px; display: none; }
+  .result-step-content.active { display: block; }
+
+  .result-section { margin-bottom: 16px; }
+  .result-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin-bottom: 6px; }
+  .result-text { background: #f8f8f8; border: 1px solid #eee; border-radius: 4px; padding: 12px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+  .result-list { display: flex; flex-direction: column; gap: 6px; }
+  .result-list-item { background: #f8f8f8; border: 1px solid #eee; border-radius: 4px; padding: 8px 12px; font-size: 13px; display: flex; gap: 8px; }
+  .bullet { color: #1a73e8; flex-shrink: 0; }
+  .bullet.warn { color: #e65100; }
+  .bullet.tip { color: #137333; }
+
+  .loading { display: none; padding: 20px; text-align: center; }
+  .loading.active { display: block; }
+  .loading-bar { height: 4px; background: #e0e0e0; border-radius: 2px; margin: 12px 0; overflow: hidden; }
+  .loading-bar-fill { height: 100%; background: #1a73e8; border-radius: 2px; animation: progress 2s ease-in-out infinite; }
+  @keyframes progress { 0%{width:0%} 50%{width:70%} 100%{width:95%} }
+  .loading-steps-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+  .lstep { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1px solid #ddd; background: #f5f5f5; color: #888; }
+  .lstep.active { border-color: #1a73e8; color: #1a73e8; background: #e8f0fe; }
+  .lstep.done { border-color: #137333; color: #137333; background: #e6f4ea; }
+
+  .orch-pipeline-diagram { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .orch-node { background: white; border: 2px solid #1a73e8; border-radius: 8px; padding: 10px 16px; text-align: center; font-size: 12px; font-weight: 600; }
+  .orch-node .n-icon { font-size: 20px; display: block; }
+  .orch-arrow { color: #1a73e8; font-size: 20px; font-weight: 700; }
+
+  .info-box { background: #e8f0fe; border: 1px solid #c5d8fb; border-radius: 6px; padding: 14px 16px; font-size: 13px; line-height: 1.65; margin-bottom: 14px; }
+  .info-box.green { background: #e6f4ea; border-color: #a8d5b5; }
+  .section-label { font-size: 12px; font-weight: 700; color: #444; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .toast { position: fixed; bottom: 20px; right: 20px; background: #1a1a2e; color: white; padding: 10px 18px; border-radius: 6px; font-size: 13px; z-index: 9999; transform: translateY(60px); opacity: 0; transition: all 0.3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.ok { background: #137333; }
+  .toast.err { background: #c5221f; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🤖 Agent Marketplace</h1>
+  <span>A2A Protocol · 3 Agents · Groq or OpenRouter (auto-detected from your key)</span>
+</header>
+
+<div class="api-bar">
+  <label>🔑 API key (Groq or OpenRouter):</label>
+  <input type="password" id="api-key-input" placeholder="gsk_... (Groq) or sk-or-v1-... (OpenRouter)" />
+  <button onclick="saveKey()">Save</button>
+  <span class="saved" id="key-saved" style="display:none">✓ Saved</span>
+  <span style="font-size:12px;color:#888;margin-left:8px">Groq: console.groq.com/keys · OpenRouter: openrouter.ai/keys · Models: GROQ_MODEL / OPENROUTER_MODEL env on server</span>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-title">Agents</div>
+    <div class="agent-item active" id="nav-research" onclick="showAgent('research')">
+      <span class="icon">🔬</span>
+      <div class="info"><div class="name">ResearchBot</div><div class="cat">Research & Analysis</div></div>
+    </div>
+    <div class="agent-item" id="nav-writer" onclick="showAgent('writer')">
+      <span class="icon">✍️</span>
+      <div class="info"><div class="name">WriteBot</div><div class="cat">Writing & Content</div></div>
+    </div>
+    <div class="agent-item" id="nav-analyst" onclick="showAgent('analyst')">
+      <span class="icon">📊</span>
+      <div class="info"><div class="name">AnalystBot</div><div class="cat">Data & Analytics</div></div>
+    </div>
+    <div class="sidebar-section">Pipelines (A2A)</div>
+    <div class="pipeline-item" id="nav-p-rw" onclick="showPipeline('rw')"><span>🔗</span> Research → Write</div>
+    <div class="pipeline-item" id="nav-p-ra" onclick="showPipeline('ra')"><span>🔗</span> Research → Analyze</div>
+    <div class="pipeline-item" id="nav-p-wa" onclick="showPipeline('wa')"><span>🔗</span> Write → Analyze</div>
+    <div class="pipeline-item" id="nav-p-full" onclick="showPipeline('full')"><span>⚡</span> Full Pipeline (All 3)</div>
+  </div>
+
+  <div class="content">
+
+    <!-- RESEARCH -->
+    <div class="view active" id="view-research">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔬</div>
+        <div class="agent-header-info">
+          <h2>ResearchBot</h2>
+          <div class="sub"><span class="badge">research-agent-001</span> &nbsp; Port 8001 &nbsp;·&nbsp; Token: <code>research-token-abc123</code></div>
+          <div class="desc">Deep research and synthesis agent. Produces structured reports with key findings on any topic.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('research','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('research','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('research','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('research','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-research-use">
+        <div class="form-group"><label>Research Query *</label><textarea id="r-query" placeholder="e.g. Latest AI trends in 2025"></textarea></div>
+        <div style="display:flex;gap:12px">
+          <div class="form-group" style="flex:1"><label>Depth</label><select id="r-depth"><option value="brief">Brief</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
+          <div class="form-group" style="flex:1"><label>Format</label><select id="r-format"><option value="report" selected>Report</option><option value="bullets">Bullets</option><option value="summary">Summary</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('research')" id="btn-research">▶ Run ResearchBot</button>
+        <div class="loading" id="loading-research"><div>Running ResearchBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-research">
+          <div class="result-header">🔬 ResearchBot — Results <span class="result-status" id="rs-status-research">OK</span></div>
+          <div id="rs-body-research" style="padding:16px"></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-research-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://localhost:8001/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-research-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-research-endpoints">
+        <table><thead><tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/a2a/execute</code></td><td>Execute task</td><td>X-Agent-Token</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/health</code></td><td>Health check</td><td>—</td></tr>
+        </tbody></table>
+        <div style="margin-top:16px"><strong style="font-size:13px">Example curl:</strong>
+        <div class="code-block" style="margin-top:8px">curl -X POST http://localhost:8001/a2a/execute \
+  -H "X-Agent-Token: research-token-abc123" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"AI trends 2025","depth":"standard","format":"report"}'</div></div>
+      </div>
+      <div class="tab-panel" id="tp-research-caps">
+        <div class="caps"><span class="cap">Deep topic research</span><span class="cap">Multi-source synthesis</span><span class="cap">Structured reports</span><span class="cap">Trend analysis</span><span class="cap">Citation formatting</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Can feed into:</strong> writer-agent-002, analyst-agent-003<br><strong>Output key:</strong> <code>research_context</code><br><strong>Pipeline:</strong> research → writer &nbsp;|&nbsp; research → analyst</div>
+      </div>
+    </div>
+
+    <!-- WRITER -->
+    <div class="view" id="view-writer">
+      <div class="agent-header">
+        <div class="agent-big-icon">✍️</div>
+        <div class="agent-header-info">
+          <h2>WriteBot</h2>
+          <div class="sub"><span class="badge">writer-agent-002</span> &nbsp; Port 8002 &nbsp;·&nbsp; Token: <code>writer-token-def456</code></div>
+          <div class="desc">Professional content writing agent. Creates blog posts, marketing copy, social media, and documentation in any tone.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('writer','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('writer','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('writer','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('writer','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-writer-use">
+        <div class="form-group"><label>Writing Topic *</label><textarea id="w-topic" placeholder="e.g. The future of remote work in 2025"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Style</label><select id="w-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="academic">Academic</option><option value="creative">Creative</option><option value="marketing">Marketing</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Length</label><select id="w-length"><option value="short">Short</option><option value="medium" selected>Medium</option><option value="long">Long</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="w-type"><option value="blog" selected>Blog Post</option><option value="social">Social Media</option><option value="email">Email</option><option value="doc">Documentation</option><option value="ad_copy">Ad Copy</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('writer')" id="btn-writer">▶ Run WriteBot</button>
+        <div class="loading" id="loading-writer"><div>Running WriteBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-writer">
+          <div class="result-header">✍️ WriteBot — Results <span class="result-status" id="rs-status-writer">OK</span></div>
+          <div id="rs-body-writer" style="padding:16px"></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-writer-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://localhost:8002/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-writer-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-writer-endpoints">
+        <table><thead><tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/a2a/execute</code></td><td>Execute task</td><td>X-Agent-Token</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/health</code></td><td>Health check</td><td>—</td></tr>
+        </tbody></table>
+        <div style="margin-top:16px"><strong style="font-size:13px">Example curl:</strong>
+        <div class="code-block" style="margin-top:8px">curl -X POST http://localhost:8002/a2a/execute \
+  -H "X-Agent-Token: writer-token-def456" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"Future of AI","style":"professional","length":"medium","content_type":"blog"}'</div></div>
+      </div>
+      <div class="tab-panel" id="tp-writer-caps">
+        <div class="caps"><span class="cap">Blog posts</span><span class="cap">Marketing copy</span><span class="cap">Social media</span><span class="cap">Technical docs</span><span class="cap">Email campaigns</span><span class="cap">SEO writing</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Receives from:</strong> research-agent-001 (<code>research_context</code>)<br><strong>Can feed into:</strong> analyst-agent-003<br><strong>Output key:</strong> <code>written_content</code></div>
+      </div>
+    </div>
+
+    <!-- ANALYST -->
+    <div class="view" id="view-analyst">
+      <div class="agent-header">
+        <div class="agent-big-icon">📊</div>
+        <div class="agent-header-info">
+          <h2>AnalystBot</h2>
+          <div class="sub"><span class="badge">analyst-agent-003</span> &nbsp; Port 8003 &nbsp;·&nbsp; Token: <code>analyst-token-ghi789</code></div>
+          <div class="desc">Sharp data analyst agent for insights, SWOT analysis, trend forecasting, competitive analysis, and recommendations.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('analyst','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('analyst','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('analyst','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('analyst','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-analyst-use">
+        <div class="form-group"><label>Topic / Data to Analyze *</label><textarea id="a-topic" placeholder="e.g. Electric vehicle market in 2025"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Analysis Type</label><select id="a-type"><option value="full" selected>Full Analysis</option><option value="insights">Insights Only</option><option value="swot">SWOT</option><option value="trends">Trends</option><option value="competitive">Competitive</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Output Format</label><select id="a-format"><option value="detailed" selected>Detailed</option><option value="executive">Executive</option><option value="bullets">Bullets</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('analyst')" id="btn-analyst">▶ Run AnalystBot</button>
+        <div class="loading" id="loading-analyst"><div>Running AnalystBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-analyst">
+          <div class="result-header">📊 AnalystBot — Results <span class="result-status" id="rs-status-analyst">OK</span></div>
+          <div id="rs-body-analyst" style="padding:16px"></div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://localhost:8003/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-analyst-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-endpoints">
+        <table><thead><tr><th>Method</th><th>Path</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+          <tr><td><span class="method get">GET</span></td><td><code>/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+          <tr><td><span class="method post">POST</span></td><td><code>/a2a/execute</code></td><td>Execute task</td><td>X-Agent-Token</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+          <tr><td><span class="method get">GET</span></td><td><code>/health</code></td><td>Health check</td><td>—</td></tr>
+        </tbody></table>
+        <div style="margin-top:16px"><strong style="font-size:13px">Example curl:</strong>
+        <div class="code-block" style="margin-top:8px">curl -X POST http://localhost:8003/a2a/execute \
+  -H "X-Agent-Token: analyst-token-ghi789" \
+  -H "Content-Type: application/json" \
+  -d '{"data_or_topic":"EV market 2025","analysis_type":"full","output_format":"detailed"}'</div></div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-caps">
+        <div class="caps"><span class="cap">Pattern recognition</span><span class="cap">SWOT analysis</span><span class="cap">Trend forecasting</span><span class="cap">Competitive analysis</span><span class="cap">Exec summaries</span><span class="cap">Visualization plans</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Receives from:</strong> research-agent-001, writer-agent-002<br><strong>Input keys:</strong> <code>research_context</code>, <code>written_content</code><br><strong>Output key:</strong> <code>analysis_result</code></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Research → Write -->
+    <div class="view" id="view-pipeline-rw">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Pipeline: Research → Write</h2>
+          <div class="sub">ResearchBot output feeds directly into WriteBot via A2A passthrough</div>
+          <div class="desc">ResearchBot researches your topic, then WriteBot uses that research context to produce well-informed content.</div>
+        </div>
+      </div>
+      <div class="info-box"><strong>A2A chain:</strong> ResearchBot returns <code>a2a_passthrough.research_context</code> → orchestrator forwards it as <code>context</code> in WriteBot's request.</div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot<br><small style="font-weight:400;color:#888">:8001</small></div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot<br><small style="font-weight:400;color:#888">:8002</small></div>
+      </div>
+      <div class="form-group"><label>Topic *</label><textarea id="p-rw-topic" placeholder="e.g. Quantum computing impact on cybersecurity"></textarea></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:140px"><label>Research Depth</label><select id="p-rw-depth"><option value="standard" selected>Standard</option><option value="brief">Brief</option><option value="deep">Deep</option></select></div>
+        <div class="form-group" style="flex:1;min-width:140px"><label>Writing Style</label><select id="p-rw-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="academic">Academic</option></select></div>
+        <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="p-rw-ctype"><option value="blog" selected>Blog Post</option><option value="social">Social Media</option><option value="email">Email</option><option value="doc">Documentation</option></select></div>
+      </div>
+      <button class="run-btn" onclick="runPipeline('rw')" id="btn-p-rw">▶ Run Pipeline</button>
+      <div class="loading" id="loading-p-rw"><div>Running Research → Write pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-steps-row"><span class="lstep" id="lst-rw-0">🔬 ResearchBot</span><span style="color:#aaa">→</span><span class="lstep" id="lst-rw-1">✍️ WriteBot</span></div>
+      </div>
+      <div class="result-box" id="result-p-rw">
+        <div class="result-header">Research → Write — Results <span class="result-status" id="rps-status-rw">OK</span></div>
+        <div class="result-steps" id="rtabs-rw"></div>
+        <div id="rcontents-rw"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Research → Analyze -->
+    <div class="view" id="view-pipeline-ra">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Pipeline: Research → Analyze</h2>
+          <div class="sub">ResearchBot findings feed into AnalystBot for deep insights</div>
+          <div class="desc">ResearchBot gathers information, then AnalystBot produces SWOT analysis, trends, and actionable recommendations from the research.</div>
+        </div>
+      </div>
+      <div class="info-box"><strong>A2A chain:</strong> <code>research_context</code> from ResearchBot → forwarded as <code>context</code> to AnalystBot.</div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot<br><small style="font-weight:400;color:#888">:8001</small></div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot<br><small style="font-weight:400;color:#888">:8003</small></div>
+      </div>
+      <div class="form-group"><label>Topic *</label><textarea id="p-ra-topic" placeholder="e.g. Renewable energy market opportunities"></textarea></div>
+      <div style="display:flex;gap:12px">
+        <div class="form-group" style="flex:1"><label>Analysis Type</label><select id="p-ra-atype"><option value="full" selected>Full Analysis</option><option value="swot">SWOT</option><option value="trends">Trends</option><option value="competitive">Competitive</option></select></div>
+      </div>
+      <button class="run-btn" onclick="runPipeline('ra')" id="btn-p-ra">▶ Run Pipeline</button>
+      <div class="loading" id="loading-p-ra"><div>Running Research → Analyze pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-steps-row"><span class="lstep" id="lst-ra-0">🔬 ResearchBot</span><span style="color:#aaa">→</span><span class="lstep" id="lst-ra-1">📊 AnalystBot</span></div>
+      </div>
+      <div class="result-box" id="result-p-ra">
+        <div class="result-header">Research → Analyze — Results <span class="result-status" id="rps-status-ra">OK</span></div>
+        <div class="result-steps" id="rtabs-ra"></div>
+        <div id="rcontents-ra"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Write → Analyze -->
+    <div class="view" id="view-pipeline-wa">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Pipeline: Write → Analyze</h2>
+          <div class="sub">WriteBot creates content, AnalystBot extracts insights from it</div>
+          <div class="desc">WriteBot generates content on your topic, then AnalystBot analyzes it for quality, insights, and improvement recommendations.</div>
+        </div>
+      </div>
+      <div class="info-box"><strong>A2A chain:</strong> <code>written_content</code> from WriteBot → forwarded as <code>context</code> to AnalystBot.</div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot<br><small style="font-weight:400;color:#888">:8002</small></div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot<br><small style="font-weight:400;color:#888">:8003</small></div>
+      </div>
+      <div class="form-group"><label>Topic *</label><textarea id="p-wa-topic" placeholder="e.g. Employee wellness in modern companies"></textarea></div>
+      <div style="display:flex;gap:12px">
+        <div class="form-group" style="flex:1"><label>Writing Style</label><select id="p-wa-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="marketing">Marketing</option></select></div>
+      </div>
+      <button class="run-btn" onclick="runPipeline('wa')" id="btn-p-wa">▶ Run Pipeline</button>
+      <div class="loading" id="loading-p-wa"><div>Running Write → Analyze pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-steps-row"><span class="lstep" id="lst-wa-0">✍️ WriteBot</span><span style="color:#aaa">→</span><span class="lstep" id="lst-wa-1">📊 AnalystBot</span></div>
+      </div>
+      <div class="result-box" id="result-p-wa">
+        <div class="result-header">Write → Analyze — Results <span class="result-status" id="rps-status-wa">OK</span></div>
+        <div class="result-steps" id="rtabs-wa"></div>
+        <div id="rcontents-wa"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Full -->
+    <div class="view" id="view-pipeline-full">
+      <div class="agent-header">
+        <div class="agent-big-icon">⚡</div>
+        <div class="agent-header-info">
+          <h2>Full Pipeline — All 3 Agents</h2>
+          <div class="sub">Research → Write → Analyze — complete end-to-end workflow</div>
+          <div class="desc">ResearchBot researches → WriteBot writes research-backed content → AnalystBot analyzes everything for insights and recommendations.</div>
+        </div>
+      </div>
+      <div class="info-box green"><strong>Full A2A chain:</strong> Each agent passes its <code>a2a_passthrough</code> to the next. AnalystBot receives accumulated context from both ResearchBot and WriteBot.</div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot<br><small style="font-weight:400;color:#888">:8001</small></div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot<br><small style="font-weight:400;color:#888">:8002</small></div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot<br><small style="font-weight:400;color:#888">:8003</small></div>
+      </div>
+      <div class="form-group"><label>Topic *</label><textarea id="p-full-topic" placeholder="e.g. The future of generative AI in enterprise software"></textarea></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:140px"><label>Research Depth</label><select id="p-full-depth"><option value="standard" selected>Standard</option><option value="brief">Brief</option><option value="deep">Deep</option></select></div>
+        <div class="form-group" style="flex:1;min-width:140px"><label>Writing Style</label><select id="p-full-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="academic">Academic</option></select></div>
+        <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="p-full-ctype"><option value="blog" selected>Blog Post</option><option value="doc">Documentation</option><option value="email">Email</option></select></div>
+      </div>
+      <button class="run-btn" onclick="runPipeline('full')" id="btn-p-full">▶ Run Full Pipeline</button>
+      <div class="loading" id="loading-p-full"><div>Running Full Pipeline (3 agents)...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-steps-row">
+          <span class="lstep" id="lst-full-0">🔬 ResearchBot</span><span style="color:#aaa">→</span>
+          <span class="lstep" id="lst-full-1">✍️ WriteBot</span><span style="color:#aaa">→</span>
+          <span class="lstep" id="lst-full-2">📊 AnalystBot</span>
+        </div>
+      </div>
+      <div class="result-box" id="result-p-full">
+        <div class="result-header">Full Pipeline — Results <span class="result-status" id="rps-status-full">OK</span></div>
+        <div class="result-steps" id="rtabs-full"></div>
+        <div id="rcontents-full"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE_URL = window.location.hostname;
+
+function buildUrl(port, path) {
+  return `http://${BASE_URL}:${port}${path}`;
+}
+
+const AGENT_CARDS = {
+  research: { schema_version:"1.0", agent_id:"research-agent-001", name:"ResearchBot", icon:"🔬", category:"Research & Analysis", capabilities:["Deep topic research","Multi-source synthesis","Report generation","Trend analysis"], auth:{type:"bearer",header:"X-Agent-Token",token:"research-token-abc123"}, port:8001, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"}, orchestration_hints:{can_feed_into:["writer-agent-002","analyst-agent-003"],output_key:"research_context"} },
+  writer: { schema_version:"1.0", agent_id:"writer-agent-002", name:"WriteBot", icon:"✍️", category:"Writing & Content", capabilities:["Blog posts","Marketing copy","Social media","Technical docs","Email campaigns"], auth:{type:"bearer",header:"X-Agent-Token",token:"writer-token-def456"}, port:8002, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"}, orchestration_hints:{can_receive_from:["research-agent-001"],can_feed_into:["analyst-agent-003"],input_key:"research_context",output_key:"written_content"} },
+  analyst: { schema_version:"1.0", agent_id:"analyst-agent-003", name:"AnalystBot", icon:"📊", category:"Data & Analytics", capabilities:["Pattern recognition","SWOT analysis","Trend forecasting","Competitive analysis","Exec summaries"], auth:{type:"bearer",header:"X-Agent-Token",token:"analyst-token-ghi789"}, port:8003, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"}, orchestration_hints:{can_receive_from:["research-agent-001","writer-agent-002"],input_keys:["research_context","written_content"],output_key:"analysis_result"} }
+};
+
+let apiKey = localStorage.getItem('or_key') || '';
+document.getElementById('card-research-json').textContent = JSON.stringify(AGENT_CARDS.research, null, 2);
+document.getElementById('card-writer-json').textContent = JSON.stringify(AGENT_CARDS.writer, null, 2);
+document.getElementById('card-analyst-json').textContent = JSON.stringify(AGENT_CARDS.analyst, null, 2);
+if (apiKey) { document.getElementById('api-key-input').value = apiKey; document.getElementById('key-saved').style.display='inline'; }
+
+/** Prefer the input field (current value), then localStorage — stays in sync after Save. */
+function getApiKey() {
+  const fromInput = document.getElementById('api-key-input').value.trim();
+  return fromInput || (localStorage.getItem('or_key') || '').trim();
+}
+
+function agentExecuteHeaders(agentToken) {
+  const h = {'X-Agent-Token': agentToken, 'Content-Type': 'application/json'};
+  const k = getApiKey();
+  if (k) h['X-OpenRouter-API-Key'] = k;
+  return h;
+}
+
+/** Prefer OpenRouter / FastAPI detail in toast; only mention "port" for real network failures. */
+function toastAgentFailure(port, err) {
+  let msg = (err && err.message) ? String(err.message) : String(err || '');
+  try {
+    const j = JSON.parse(msg);
+    if (j.detail != null) msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
+  } catch (_) {}
+  const short = msg.length > 280 ? msg.slice(0, 277) + '…' : msg;
+  if (short && (short.includes('OpenRouter') || short.includes('Groq') || short.includes('Missing API key') || /HTTP \d{3}/.test(short)))
+    return toast(short, 'err');
+  if (short && !short.includes('Failed to fetch') && !short.startsWith('TypeError') && short.length < 300)
+    return toast(short, 'err');
+  toast('Cannot reach agent on port ' + port + ' (start the Python server) or request failed: ' + (short.slice(0, 120) || 'network error'), 'err');
+}
+
+function saveKey() {
+  const v = document.getElementById('api-key-input').value.trim();
+  if (!v) return toast('Enter an API key','err');
+  apiKey = v; localStorage.setItem('or_key', v);
+  document.getElementById('key-saved').style.display='inline';
+  toast('API key saved','ok');
+}
+
+function showAgent(name) {
+  deactivateAll();
+  document.getElementById('view-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+}
+function showPipeline(key) {
+  deactivateAll();
+  document.getElementById('view-pipeline-'+key).classList.add('active');
+  document.getElementById('nav-p-'+key).classList.add('active');
+}
+function deactivateAll() {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.agent-item,.pipeline-item').forEach(i=>i.classList.remove('active'));
+}
+function switchTab(agent, tab, e) {
+  document.querySelectorAll('#view-'+agent+' .tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#view-'+agent+' .tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tp-'+agent+'-'+tab).classList.add('active');
+  e.currentTarget.classList.add('active');
+}
+
+async function runSingle(agent) {
+  const inputs = getSingleInputs(agent);
+  if (!inputs) return;
+  setLoading(agent, true);
+  try {
+    let result, isDemo = false;
+    const key = getApiKey();
+    if (!key) { result = await demoSingle(agent, inputs); isDemo = true; }
+    else {
+      try {
+        const resp = await fetch(buildUrl(AGENT_CARDS[agent].port, '/a2a/execute'), {
+          method:'POST',
+          headers: agentExecuteHeaders(AGENT_CARDS[agent].auth.token),
+          body: JSON.stringify(inputs)
+        });
+        const raw = await resp.text();
+        if (!resp.ok) throw new Error(raw);
+        result = JSON.parse(raw).result;
+      } catch(e) {
+        toastAgentFailure(AGENT_CARDS[agent].port, e);
+        result = await demoSingle(agent, inputs); isDemo = true;
+      }
+    }
+    const box = document.getElementById('result-'+agent);
+    const statusEl = document.getElementById('rs-status-'+agent);
+    box.classList.add('visible');
+    statusEl.textContent = isDemo ? 'DEMO MODE' : 'OK';
+    statusEl.className = 'result-status '+(isDemo?'demo':'ok');
+    document.getElementById('rs-body-'+agent).innerHTML = renderFields(result);
+  } finally { setLoading(agent, false); }
+}
+
+function getSingleInputs(agent) {
+  if (agent==='research') { const q=document.getElementById('r-query').value.trim(); if(!q){toast('Enter a query','err');return null;} return {query:q,depth:document.getElementById('r-depth').value,format:document.getElementById('r-format').value}; }
+  if (agent==='writer') { const t=document.getElementById('w-topic').value.trim(); if(!t){toast('Enter a topic','err');return null;} return {topic:t,style:document.getElementById('w-style').value,length:document.getElementById('w-length').value,content_type:document.getElementById('w-type').value}; }
+  if (agent==='analyst') { const t=document.getElementById('a-topic').value.trim(); if(!t){toast('Enter a topic','err');return null;} return {data_or_topic:t,analysis_type:document.getElementById('a-type').value,output_format:document.getElementById('a-format').value}; }
+}
+
+function setLoading(id, on) {
+  document.getElementById('loading-'+id).classList.toggle('active', on);
+  document.getElementById('btn-'+id).disabled = on;
+}
+
+const PIPELINES = {
+  rw: { steps: [
+    {key:'research',port:8001,token:'research-token-abc123',icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:document.getElementById('p-rw-depth').value,format:'report'})},
+    {key:'writer',port:8002,token:'writer-token-def456',icon:'✍️',name:'WriteBot', payload:(t,ctx)=>({topic:t,style:document.getElementById('p-rw-style').value,length:'medium',content_type:document.getElementById('p-rw-ctype').value,context:ctx})}
+  ], getTopic:()=>document.getElementById('p-rw-topic').value.trim() },
+  ra: { steps: [
+    {key:'research',port:8001,token:'research-token-abc123',icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:'deep',format:'report'})},
+    {key:'analyst',port:8003,token:'analyst-token-ghi789',icon:'📊',name:'AnalystBot', payload:(t,ctx)=>({data_or_topic:t,analysis_type:document.getElementById('p-ra-atype').value,output_format:'detailed',context:ctx})}
+  ], getTopic:()=>document.getElementById('p-ra-topic').value.trim() },
+  wa: { steps: [
+    {key:'writer',port:8002,token:'writer-token-def456',icon:'✍️',name:'WriteBot', payload:(t)=>({topic:t,style:document.getElementById('p-wa-style').value,length:'medium',content_type:'blog'})},
+    {key:'analyst',port:8003,token:'analyst-token-ghi789',icon:'📊',name:'AnalystBot', payload:(t,ctx)=>({data_or_topic:t,analysis_type:'insights',output_format:'detailed',context:ctx})}
+  ], getTopic:()=>document.getElementById('p-wa-topic').value.trim() },
+  full: { steps: [
+    {key:'research',port:8001,token:'research-token-abc123',icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:document.getElementById('p-full-depth').value,format:'report'})},
+    {key:'writer',port:8002,token:'writer-token-def456',icon:'✍️',name:'WriteBot', payload:(t,ctx)=>({topic:t,style:document.getElementById('p-full-style').value,length:'medium',content_type:document.getElementById('p-full-ctype').value,context:ctx})},
+    {key:'analyst',port:8003,token:'analyst-token-ghi789',icon:'📊',name:'AnalystBot', payload:(t,ctx)=>({data_or_topic:t,analysis_type:'full',output_format:'detailed',context:ctx})}
+  ], getTopic:()=>document.getElementById('p-full-topic').value.trim() }
+};
+
+async function runPipeline(key) {
+  const cfg = PIPELINES[key];
+  const topic = cfg.getTopic();
+  if (!topic) return toast('Enter a topic','err');
+  document.getElementById('loading-p-'+key).classList.add('active');
+  document.getElementById('btn-p-'+key).disabled = true;
+  const results = []; let acc = {}; let isDemo = !getApiKey();
+  try {
+    for (let i=0; i<cfg.steps.length; i++) {
+      const s = cfg.steps[i];
+      const lstEl = document.getElementById('lst-'+key+'-'+i);
+      if (lstEl) lstEl.classList.add('active');
+      let result;
+      try {
+        if (!getApiKey()) throw new Error('no_key');
+        const pl = i===0 ? s.payload(topic) : s.payload(topic, acc);
+        const resp = await fetch(buildUrl(s.port, '/a2a/execute'),{
+          method:'POST',
+          headers: agentExecuteHeaders(s.token),
+          body: JSON.stringify(pl)
+        });
+        const raw = await resp.text();
+        if(!resp.ok) throw new Error(raw);
+        const data = JSON.parse(raw);
+        result = data.result;
+        if (data.a2a_passthrough) Object.assign(acc, data.a2a_passthrough);
+      } catch(e) { toastAgentFailure(s.port, e); isDemo=true; result = await demoSingle(s.key,{query:topic,topic,data_or_topic:topic}); }
+      if (lstEl) { lstEl.classList.remove('active'); lstEl.classList.add('done'); }
+      results.push({...s, result});
+    }
+    const box = document.getElementById('result-p-'+key);
+    const statusEl = document.getElementById('rps-status-'+key);
+    box.classList.add('visible');
+    statusEl.textContent = isDemo?'DEMO MODE':'OK';
+    statusEl.className='result-status '+(isDemo?'demo':'ok');
+    const tabsEl = document.getElementById('rtabs-'+key);
+    const contsEl = document.getElementById('rcontents-'+key);
+    tabsEl.innerHTML = results.map((r,i)=>`<div class="result-step-tab ${i===0?'active':''}" onclick="switchRTab('${key}',${i},${results.length})" id="rtab-${key}-${i}">${r.icon} ${r.name}</div>`).join('');
+    contsEl.innerHTML = results.map((r,i)=>`<div class="result-step-content ${i===0?'active':''}" id="rc-${key}-${i}">${renderFields(r.result)}</div>`).join('');
+  } finally {
+    document.getElementById('loading-p-'+key).classList.remove('active');
+    document.getElementById('btn-p-'+key).disabled = false;
+  }
+}
+
+function switchRTab(key,idx,total) {
+  for(let i=0;i<total;i++){
+    document.getElementById('rtab-'+key+'-'+i)?.classList.toggle('active',i===idx);
+    document.getElementById('rc-'+key+'-'+i)?.classList.toggle('active',i===idx);
+  }
+}
+
+function renderFields(r) {
+  if (!r) return '<p style="color:#888">No result</p>';
+  let h = '';
+  if (r.title) h+=`<div class="result-section"><div class="result-section-title">Title</div><div class="result-text" style="font-weight:700;font-size:15px">${r.title}</div></div>`;
+  if (r.meta_description) h+=`<div class="result-section"><div class="result-section-title">Meta Description</div><div class="result-text" style="color:#666">${r.meta_description}</div></div>`;
+  if (r.summary) h+=`<div class="result-section"><div class="result-section-title">Summary</div><div class="result-text">${r.summary}</div></div>`;
+  if (r.executive_summary) h+=`<div class="result-section"><div class="result-section-title">Executive Summary</div><div class="result-text">${r.executive_summary}</div></div>`;
+  if (r.content) h+=`<div class="result-section"><div class="result-section-title">Content${r.word_count?' (~'+r.word_count+' words)':''}</div><div class="result-text">${r.content}</div></div>`;
+  if (r.key_findings?.length) h+=`<div class="result-section"><div class="result-section-title">Key Findings</div><div class="result-list">${r.key_findings.map(f=>`<div class="result-list-item"><span class="bullet">◆</span>${f}</div>`).join('')}</div></div>`;
+  if (r.key_insights?.length) h+=`<div class="result-section"><div class="result-section-title">Key Insights</div><div class="result-list">${r.key_insights.map(f=>`<div class="result-list-item"><span class="bullet">◆</span>${f}</div>`).join('')}</div></div>`;
+  if (r.recommendations?.length) h+=`<div class="result-section"><div class="result-section-title">Recommendations</div><div class="result-list">${r.recommendations.map(f=>`<div class="result-list-item"><span class="bullet tip">→</span>${f}</div>`).join('')}</div></div>`;
+  if (r.risk_factors?.length) h+=`<div class="result-section"><div class="result-section-title">Risk Factors</div><div class="result-list">${r.risk_factors.map(f=>`<div class="result-list-item"><span class="bullet warn">⚠</span>${f}</div>`).join('')}</div></div>`;
+  if (r.visualization_suggestions?.length) h+=`<div class="result-section"><div class="result-section-title">Visualization Suggestions</div><div class="result-list">${r.visualization_suggestions.map(f=>`<div class="result-list-item"><span class="bullet" style="color:#888">📈</span>${f}</div>`).join('')}</div></div>`;
+  return h || `<div class="code-block" style="font-size:12px">${JSON.stringify(r,null,2)}</div>`;
+}
+
+async function demoSingle(agent, inputs) {
+  await new Promise(r=>setTimeout(r,1200));
+  const topic = inputs.query||inputs.topic||inputs.data_or_topic||'the topic';
+  if(agent==='research') return {title:`Research: ${topic}`,summary:`[DEMO MODE — backend not running or no API key]\n\nThis is simulated output for "${topic}". To get live results:\n1. Add your Groq (gsk_…) or OpenRouter key above and click Save\n2. Start research1.py, writer2.py, analyst3.py on ports 8001–8003`,key_findings:[`${topic} shows strong growth momentum`,`Multiple stakeholders actively investing in this space`,`Key challenges: scalability, regulation, talent`,`Disruption of traditional approaches expected within 2–3 years`],raw_text:""};
+  if(agent==='writer') return {title:`The Complete Guide to ${topic}`,content:`[DEMO MODE]\n\nIntroduction\n${topic} is reshaping how organizations operate. In this article, we explore the key dimensions...\n\nWhy It Matters\nThe implications extend across industries, touching every stakeholder...\n\nKey Takeaways\nOrganizations that act now will capture first-mover advantage...\n\n→ Start backend agents + save your Groq or OpenRouter API key for live content.`,word_count:512,meta_description:`Everything you need to know about ${topic}.`};
+  if(agent==='analyst') return {executive_summary:`[DEMO MODE] "${topic}" presents a compelling opportunity with manageable risk and strong fundamentals.`,key_insights:[`${topic} is at a clear inflection point`,`First-mover advantages still available`,`Technology maturation reduces friction`,`Regulatory clarity is emerging`],recommendations:[`Build capabilities before market consolidates`,`Form strategic partnerships`,`Monitor adjacent trends`],risk_factors:[`Adoption may lag projections`,`Talent scarcity in specialized roles`],visualization_suggestions:[`Market size waterfall (2023–2028)`,`Competitive positioning matrix`,`Risk vs opportunity bubble chart`]};
+}
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className='toast show '+type;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

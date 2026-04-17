@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Agent Marketplace</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f5f5f5; color:#222; font-size:14px; }
+
+  /* ── Auth Modal ─────────────────────────────────────────────────── */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9000;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-overlay.hidden { display:none; }
+  .modal {
+    background:white; border-radius:12px; padding:36px 40px; width:420px; max-width:95vw;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal h2 { font-size:22px; font-weight:700; margin-bottom:6px; }
+  .modal .sub { color:#666; font-size:13px; margin-bottom:24px; }
+  .modal .form-group { margin-bottom:16px; }
+  .modal .form-group label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; color:#444; }
+  .modal .form-group input {
+    width:100%; border:1px solid #ccc; border-radius:6px; padding:10px 12px;
+    font-size:14px; font-family:inherit; transition:border-color 0.2s;
+  }
+  .modal .form-group input:focus { outline:none; border-color:#1a73e8; }
+  .modal .auth-btn {
+    width:100%; background:#1a1a2e; color:white; border:none; border-radius:6px;
+    padding:12px; font-size:15px; font-weight:600; cursor:pointer; margin-top:4px;
+  }
+  .modal .auth-btn:hover { background:#16213e; }
+  .modal .auth-btn:disabled { background:#aaa; cursor:not-allowed; }
+  .modal .switch-link { text-align:center; margin-top:18px; font-size:13px; color:#666; }
+  .modal .switch-link a { color:#1a73e8; cursor:pointer; text-decoration:none; font-weight:500; }
+  .modal .switch-link a:hover { text-decoration:underline; }
+  .modal .auth-err { background:#fce8e6; color:#c5221f; border-radius:6px; padding:10px 12px; font-size:13px; margin-bottom:14px; display:none; }
+  .modal .auth-err.show { display:block; }
+  .pw-hint { font-size:11px; color:#888; margin-top:4px; }
+
+  /* ── Buy Modal ───────────────────────────────────────────────────── */
+  .buy-modal {
+    background:white; border-radius:12px; padding:32px; width:380px; max-width:95vw;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3); text-align:center;
+  }
+  .buy-modal .buy-icon { font-size:48px; margin-bottom:12px; }
+  .buy-modal h3 { font-size:20px; font-weight:700; margin-bottom:6px; }
+  .buy-modal .buy-price { font-size:28px; font-weight:800; color:#1a73e8; margin:16px 0; }
+  .buy-modal .buy-desc { color:#666; font-size:13px; line-height:1.6; margin-bottom:24px; }
+  .buy-modal .buy-confirm-btn {
+    width:100%; background:#1a73e8; color:white; border:none; border-radius:6px;
+    padding:12px; font-size:15px; font-weight:600; cursor:pointer;
+  }
+  .buy-modal .buy-confirm-btn:hover { background:#1558b0; }
+  .buy-modal .buy-cancel-btn {
+    width:100%; background:none; color:#666; border:1px solid #ddd; border-radius:6px;
+    padding:10px; font-size:14px; cursor:pointer; margin-top:10px;
+  }
+  .buy-modal .buy-success { display:none; }
+  .buy-modal .buy-success.show { display:block; }
+  .buy-modal .buy-form { }
+  .buy-modal .buy-form.hidden { display:none; }
+
+  /* ── Header ──────────────────────────────────────────────────────── */
+  header { background:#1a1a2e; color:white; padding:14px 24px; display:flex; align-items:center; gap:16px; }
+  header h1 { font-size:18px; font-weight:600; }
+  header span { font-size:12px; color:#aaa; }
+  .header-user { margin-left:auto; display:flex; align-items:center; gap:12px; }
+  .header-user .uname { font-size:13px; color:#ddd; }
+  .header-user .logout-btn {
+    background:none; border:1px solid #555; color:#ccc; border-radius:4px;
+    padding:4px 12px; font-size:12px; cursor:pointer;
+  }
+  .header-user .logout-btn:hover { border-color:#aaa; color:white; }
+  .login-btn-header {
+    background:#1a73e8; color:white; border:none; border-radius:4px;
+    padding:6px 16px; font-size:13px; font-weight:600; cursor:pointer; margin-left:auto;
+  }
+
+  
+
+  /* ── Layout ──────────────────────────────────────────────────────── */
+  .layout { display:flex; height:calc(100vh - 120px); }
+  .sidebar { width:240px; background:white; border-right:1px solid #ddd; overflow-y:auto; flex-shrink:0; }
+  .sidebar-title { padding:12px 16px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#888; border-bottom:1px solid #eee; }
+  .agent-item { padding:12px 16px; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:10px; transition:background 0.15s; }
+  .agent-item:hover { background:#f8f8f8; }
+  .agent-item.active { background:#e8f0fe; border-left:3px solid #1a73e8; }
+  .agent-item .icon { font-size:20px; }
+  .agent-item .info .name { font-weight:600; font-size:13px; }
+  .agent-item .info .cat { font-size:11px; color:#888; margin-top:1px; }
+  .sidebar-section { padding:10px 16px 4px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#888; border-top:1px solid #eee; margin-top:4px; }
+  .pipeline-item { padding:9px 16px; cursor:pointer; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:8px; font-size:13px; transition:background 0.15s; }
+  .pipeline-item:hover { background:#f8f8f8; }
+  .pipeline-item.active { background:#e8f0fe; border-left:3px solid #1a73e8; }
+
+  .content { flex:1; overflow-y:auto; padding:24px; background:#f5f5f5; }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  /* ── Agent card ──────────────────────────────────────────────────── */
+  .agent-header { background:white; border:1px solid #ddd; border-radius:8px; padding:20px; margin-bottom:16px; display:flex; align-items:flex-start; gap:16px; }
+  .agent-big-icon { font-size:40px; }
+  .agent-header-info h2 { font-size:20px; font-weight:700; margin-bottom:4px; }
+  .agent-header-info .sub { color:#666; font-size:13px; margin-bottom:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .agent-header-info .desc { font-size:13px; line-height:1.6; color:#444; }
+  .badge { display:inline-block; background:#e8f0fe; color:#1a73e8; font-size:11px; padding:3px 10px; border-radius:20px; font-weight:500; }
+  .price-tag { display:inline-block; background:#e6f4ea; color:#137333; font-size:13px; padding:3px 10px; border-radius:20px; font-weight:700; }
+  .buy-btn {
+    background:#1a73e8; color:white; border:none; border-radius:6px;
+    padding:7px 18px; font-size:13px; font-weight:600; cursor:pointer; transition:background 0.2s;
+  }
+  .buy-btn:hover { background:#1558b0; }
+  .buy-btn.owned { background:#137333; cursor:default; }
+  .buy-btn.owned:hover { background:#137333; }
+
+  /* ── Tabs ────────────────────────────────────────────────────────── */
+  .tabs { display:flex; background:white; border:1px solid #ddd; border-radius:8px 8px 0 0; overflow:hidden; border-bottom:none; }
+  .tab { padding:10px 18px; font-size:13px; cursor:pointer; border-right:1px solid #ddd; background:#fafafa; font-weight:500; transition:background 0.15s; }
+  .tab:hover { background:#f0f0f0; }
+  .tab.active { background:white; color:#1a73e8; border-bottom:2px solid #1a73e8; }
+  .tab-panel { background:white; border:1px solid #ddd; border-radius:0 0 8px 8px; padding:20px; margin-bottom:16px; display:none; }
+  .tab-panel.active { display:block; }
+
+  .caps { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .cap { background:#f0f0f0; border-radius:4px; padding:4px 10px; font-size:12px; color:#555; }
+  .code-block { background:#1e1e1e; color:#d4d4d4; border-radius:6px; padding:16px; font-family:"Courier New",monospace; font-size:12px; line-height:1.6; overflow-x:auto; white-space:pre; }
+
+  table { width:100%; border-collapse:collapse; margin-top:12px; }
+  th { background:#f5f5f5; padding:8px 12px; text-align:left; font-size:12px; font-weight:600; border:1px solid #ddd; }
+  td { padding:8px 12px; border:1px solid #ddd; font-size:12px; vertical-align:top; }
+  .method { font-weight:700; padding:2px 8px; border-radius:3px; font-size:11px; }
+  .method.get { background:#e6f4ea; color:#137333; }
+  .method.post { background:#e8f0fe; color:#1a73e8; }
+
+  .form-group { margin-bottom:14px; }
+  .form-group label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; color:#444; }
+  .form-group input, .form-group select, .form-group textarea { width:100%; border:1px solid #ccc; border-radius:4px; padding:8px 10px; font-size:13px; font-family:inherit; background:white; }
+  .form-group textarea { resize:vertical; min-height:80px; }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:#1a73e8; }
+
+  .run-btn { background:#1a73e8; color:white; border:none; border-radius:5px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .run-btn:hover { background:#1558b0; }
+  .run-btn:disabled { background:#aaa; cursor:not-allowed; }
+
+  /* ── Results ─────────────────────────────────────────────────────── */
+  .result-box { margin-top:20px; border:1px solid #ddd; border-radius:6px; overflow:hidden; display:none; }
+  .result-box.visible { display:block; }
+  .result-header { background:#1a1a2e; color:white; padding:10px 16px; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .result-status { font-size:11px; padding:2px 8px; border-radius:10px; margin-left:auto; }
+  .result-status.ok { background:#e6f4ea; color:#137333; }
+  .result-status.err { background:#fce8e6; color:#c5221f; }
+  .result-status.demo { background:#fff8e1; color:#e65100; }
+  .result-steps { display:flex; border-bottom:1px solid #ddd; background:#fafafa; }
+  .result-step-tab { padding:8px 16px; font-size:12px; cursor:pointer; border-right:1px solid #ddd; font-weight:500; }
+  .result-step-tab.active { background:white; color:#1a73e8; font-weight:700; border-bottom:2px solid #1a73e8; }
+  .result-step-content { padding:16px; display:none; }
+  .result-step-content.active { display:block; }
+  .result-section { margin-bottom:16px; }
+  .result-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:#888; margin-bottom:6px; }
+  .result-text { background:#f8f8f8; border:1px solid #eee; border-radius:4px; padding:12px; font-size:13px; line-height:1.65; white-space:pre-wrap; }
+  .result-list { display:flex; flex-direction:column; gap:6px; }
+  .result-list-item { background:#f8f8f8; border:1px solid #eee; border-radius:4px; padding:8px 12px; font-size:13px; display:flex; gap:8px; }
+  .bullet { color:#1a73e8; flex-shrink:0; }
+  .bullet.warn { color:#e65100; }
+  .bullet.tip { color:#137333; }
+
+  .loading { display:none; padding:20px; text-align:center; }
+  .loading.active { display:block; }
+  .loading-bar { height:4px; background:#e0e0e0; border-radius:2px; margin:12px 0; overflow:hidden; }
+  .loading-bar-fill { height:100%; background:#1a73e8; border-radius:2px; animation:progress 2s ease-in-out infinite; }
+  @keyframes progress { 0%{width:0%} 50%{width:70%} 100%{width:95%} }
+  .loading-steps-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+  .lstep { font-size:12px; padding:4px 12px; border-radius:20px; border:1px solid #ddd; background:#f5f5f5; color:#888; }
+  .lstep.active { border-color:#1a73e8; color:#1a73e8; background:#e8f0fe; }
+  .lstep.done { border-color:#137333; color:#137333; background:#e6f4ea; }
+
+  .orch-pipeline-diagram { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .orch-node { background:white; border:2px solid #1a73e8; border-radius:8px; padding:10px 16px; text-align:center; font-size:12px; font-weight:600; }
+  .orch-node .n-icon { font-size:20px; display:block; }
+  .orch-arrow { color:#1a73e8; font-size:20px; font-weight:700; }
+  .info-box { background:#e8f0fe; border:1px solid #c5d8fb; border-radius:6px; padding:14px 16px; font-size:13px; line-height:1.65; margin-bottom:14px; }
+  .info-box.green { background:#e6f4ea; border-color:#a8d5b5; }
+  .section-label { font-size:12px; font-weight:700; color:#444; margin:16px 0 8px; text-transform:uppercase; letter-spacing:0.05em; }
+
+  .toast { position:fixed; bottom:20px; right:20px; background:#1a1a2e; color:white; padding:10px 18px; border-radius:6px; font-size:13px; z-index:9999; transform:translateY(60px); opacity:0; transition:all 0.3s; max-width:360px; }
+  .toast.show { transform:translateY(0); opacity:1; }
+  .toast.ok { background:#137333; }
+  .toast.err { background:#c5221f; }
+
+  /* ── Auth required notice ────────────────────────────────────────── */
+  .auth-notice { background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:20px; text-align:center; margin:20px 0; }
+  .auth-notice p { color:#856404; margin-bottom:12px; font-weight:500; }
+  .auth-notice button { background:#1a1a2e; color:white; border:none; border-radius:6px; padding:8px 20px; font-size:14px; cursor:pointer; }
+
+  /* ── Buy-required notice ─────────────────────────────────────────── */
+  .buy-notice { background:#f0f4ff; border:1px solid #c5d8fb; border-radius:10px; padding:28px 24px; text-align:center; margin:8px 0; }
+  .buy-notice .buy-notice-icon { font-size:40px; margin-bottom:10px; }
+  .buy-notice h4 { font-size:16px; font-weight:700; color:#1a1a2e; margin-bottom:6px; }
+  .buy-notice p { font-size:13px; color:#555; margin-bottom:18px; line-height:1.6; }
+  .buy-notice .buy-notice-btn { background:#1a73e8; color:white; border:none; border-radius:6px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer; }
+  .buy-notice .buy-notice-btn:hover { background:#1558b0; }
+  .buy-notice .sign-in-link { display:block; margin-top:10px; font-size:12px; color:#888; }
+  .buy-notice .sign-in-link a { color:#1a73e8; cursor:pointer; text-decoration:none; }
+  .buy-notice .sign-in-link a:hover { text-decoration:underline; }
+  .agent-use-form { }
+  .agent-use-form.hidden { display:none; }
+  .buy-notice.hidden { display:none; }
+</style>
+</head>
+<body>
+
+<!-- ── Auth Modal ──────────────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <!-- Login Form -->
+    <div id="login-form">
+      <h2>🔐 Sign In</h2>
+      <p class="sub">Sign in to access Agent Marketplace</p>
+      <div id="auth-err" class="auth-err"></div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-pwd" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">Sign In</button>
+      <div class="switch-link">No account? <a onclick="showSignup()">Create one free</a></div>
+    </div>
+    <!-- Signup Form -->
+    <div id="signup-form" style="display:none">
+      <h2>🚀 Create Account</h2>
+      <p class="sub">Join Agent Marketplace — free forever</p>
+      <div id="signup-err" class="auth-err"></div>
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="su-username" placeholder="john_doe" autocomplete="username"/>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="su-email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="su-pwd" placeholder="Min 8 chars, 1 uppercase, 1 digit" autocomplete="new-password"/>
+        <div class="pw-hint">Minimum 8 characters · 1 uppercase · 1 digit</div>
+      </div>
+      <button class="auth-btn" id="signup-btn" onclick="doSignup()">Create Account</button>
+      <div class="switch-link">Already have an account? <a onclick="showLogin()">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Buy Modal ───────────────────────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="buy-modal">
+  <div class="buy-modal">
+    <div id="buy-form-area">
+      <div class="buy-icon" id="buy-modal-icon">🤖</div>
+      <h3 id="buy-modal-name">Agent</h3>
+      <div class="buy-price" id="buy-modal-price">$0.00</div>
+      <div class="buy-desc" id="buy-modal-desc">Purchase this agent to unlock access.</div>
+      <button class="buy-confirm-btn" onclick="confirmBuy()">💳 Buy Now</button>
+      <button class="buy-cancel-btn" onclick="closeBuyModal()">Cancel</button>
+    </div>
+    <div class="buy-success" id="buy-success-area">
+      <div style="font-size:60px;margin-bottom:16px">🎉</div>
+      <h3 style="margin-bottom:8px">Purchase Successful!</h3>
+      <p id="buy-success-msg" style="color:#666;font-size:13px;margin-bottom:16px"></p>
+      <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px;margin-bottom:16px;text-align:left">
+        <div style="font-size:11px;font-weight:700;color:#1a73e8;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">🔌 Your Agent Endpoint</div>
+        <div style="font-size:11px;color:#555;margin-bottom:8px">Paste this link in any browser or app to call your agent (needs your JWT token):</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <code id="buy-success-url" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block"></code>
+          <button onclick="copyUrl('buy-success-url')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+        </div>
+        <div style="font-size:11px;color:#666">AgentCard: <code id="buy-success-card-url" style="color:#1a73e8;font-size:11px"></code></div>
+        <div style="font-size:11px;color:#666;margin-top:4px">Auth header: <code style="background:#f0f0f0;padding:2px 5px;border-radius:3px">Authorization: Bearer &lt;your-jwt-token&gt;</code></div>
+      </div>
+      <button class="buy-confirm-btn" onclick="closeBuyModal()">Start Using Agent</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header>
+  <h1>🤖 Agent Marketplace</h1>
+  <span>A2A Protocol · 3 Agents · Groq or OpenRouter</span>
+  <div class="header-user" id="header-user-area" style="display:none">
+    <span class="uname" id="header-username"></span>
+    <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+  </div>
+  <button class="login-btn-header" id="header-login-btn" onclick="showAuthModal()" style="display:none">Sign In</button>
+</header>
+
+
+<!-- ── Layout ──────────────────────────────────────────────────────────────── -->
+<div class="layout">
+  <div class="sidebar">
+    <div class="sidebar-title">Agents</div>
+    <div class="agent-item active" id="nav-research" onclick="showAgent('research')">
+      <span class="icon">🔬</span>
+      <div class="info"><div class="name">ResearchBot</div><div class="cat">Research &amp; Analysis · $9.99</div></div>
+    </div>
+    <div class="agent-item" id="nav-writer" onclick="showAgent('writer')">
+      <span class="icon">✍️</span>
+      <div class="info"><div class="name">WriteBot</div><div class="cat">Writing &amp; Content · $7.99</div></div>
+    </div>
+    <div class="agent-item" id="nav-analyst" onclick="showAgent('analyst')">
+      <span class="icon">📊</span>
+      <div class="info"><div class="name">AnalystBot</div><div class="cat">Data &amp; Analytics · $12.99</div></div>
+    </div>
+    <div class="sidebar-section">Pipelines (A2A)</div>
+    <div class="pipeline-item" id="nav-p-rw"   onclick="showPipeline('rw')">  <span>🔗</span> Research → Write</div>
+    <div class="pipeline-item" id="nav-p-ra"   onclick="showPipeline('ra')">  <span>🔗</span> Research → Analyze</div>
+    <div class="pipeline-item" id="nav-p-wa"   onclick="showPipeline('wa')">  <span>🔗</span> Write → Analyze</div>
+    <div class="pipeline-item" id="nav-p-full" onclick="showPipeline('full')"><span>⚡</span> Full Pipeline (All 3)</div>
+  </div>
+
+  <div class="content">
+
+    <!-- RESEARCH -->
+    <div class="view active" id="view-research">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔬</div>
+        <div class="agent-header-info">
+          <h2>ResearchBot</h2>
+          <div class="sub">
+            <span class="badge">research-agent-001</span>
+            <span class="price-tag">$9.99</span>
+            <button class="buy-btn" id="buy-btn-research-agent-001" onclick="openBuyModal('research-agent-001','ResearchBot','🔬',9.99,'Deep research and synthesis on any topic.')">Buy Agent</button>
+          </div>
+          <div class="desc">Deep research and synthesis agent. Produces structured reports with key findings on any topic.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('research','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('research','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('research','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('research','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-research-use">
+        <div class="buy-notice hidden" id="buy-notice-research">
+          <div class="buy-notice-icon">🔬</div>
+          <h4>ResearchBot — Not Purchased</h4>
+          <p>You need to purchase ResearchBot to run queries.<br>One-time purchase · Use immediately after buying.</p>
+          <button class="buy-notice-btn" onclick="openBuyModal('research-agent-001','ResearchBot','🔬',9.99,'Deep research and synthesis on any topic.')">💳 Buy ResearchBot — $9.99</button>
+          <span class="sign-in-link" id="buy-notice-signin-research"></span>
+        </div>
+        <div class="agent-use-form hidden" id="use-form-research">
+        <div class="form-group"><label>Research Query *</label><textarea id="r-query" placeholder="e.g. Latest AI trends in 2025"></textarea></div>
+        <div style="display:flex;gap:12px">
+          <div class="form-group" style="flex:1"><label>Depth</label><select id="r-depth"><option value="brief">Brief</option><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
+          <div class="form-group" style="flex:1"><label>Format</label><select id="r-format"><option value="report" selected>Report</option><option value="bullets">Bullets</option><option value="summary">Summary</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('research')" id="btn-research">▶ Run ResearchBot</button>
+        <div class="loading" id="loading-research"><div>Running ResearchBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-research">
+          <div class="result-header">🔬 ResearchBot — Results <span class="result-status" id="rs-status-research">OK</span></div>
+          <div id="rs-body-research" style="padding:16px"></div>
+        </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-research-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://&lt;your-ec2&gt;:8001/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-research-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-research-endpoints">
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Live Endpoints — ResearchBot</div>
+          <table><thead><tr><th>Method</th><th>Full URL</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-research-card">http://&lt;ec2-ip&gt;:8001/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+            <tr><td><span class="method post">POST</span></td><td><code id="ep-research-exec">http://&lt;ec2-ip&gt;:8001/a2a/execute</code></td><td>Execute research task</td><td>JWT Bearer</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-research-status">http://&lt;ec2-ip&gt;:8001/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-research-health">http://&lt;ec2-ip&gt;:8001/health</code></td><td>Health check</td><td>—</td></tr>
+          </tbody></table>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#1a73e8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">🔌 Execute Endpoint (copy &amp; use from any machine)</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="ep-research-exec-full" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('ep-research-exec-full')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:8px">Required header: <code style="background:#f0f0f0;padding:2px 5px;border-radius:3px">Authorization: Bearer &lt;your-jwt-token&gt;</code> · Get token from login</div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:6px">Example curl</div>
+        <div class="code-block" id="ep-research-curl">Loading...</div>
+      </div>
+      <div class="tab-panel" id="tp-research-caps">
+        <div class="caps"><span class="cap">Deep topic research</span><span class="cap">Multi-source synthesis</span><span class="cap">Structured reports</span><span class="cap">Trend analysis</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Can feed into:</strong> writer-agent-002, analyst-agent-003<br><strong>Output key:</strong> <code>research_context</code></div>
+        <div class="section-label">Your Access Endpoint</div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;color:#555;margin-bottom:6px">Use this URL from any browser or app to call ResearchBot:</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="cap-research-url" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('cap-research-url')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WRITER -->
+    <div class="view" id="view-writer">
+      <div class="agent-header">
+        <div class="agent-big-icon">✍️</div>
+        <div class="agent-header-info">
+          <h2>WriteBot</h2>
+          <div class="sub">
+            <span class="badge">writer-agent-002</span>
+            <span class="price-tag">$7.99</span>
+            <button class="buy-btn" id="buy-btn-writer-agent-002" onclick="openBuyModal('writer-agent-002','WriteBot','✍️',7.99,'Professional content writing in any style.')">Buy Agent</button>
+          </div>
+          <div class="desc">Professional content writing agent. Creates blog posts, marketing copy, social media, and documentation in any tone.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('writer','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('writer','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('writer','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('writer','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-writer-use">
+        <div class="buy-notice hidden" id="buy-notice-writer">
+          <div class="buy-notice-icon">✍️</div>
+          <h4>WriteBot — Not Purchased</h4>
+          <p>You need to purchase WriteBot to generate content.<br>One-time purchase · Use immediately after buying.</p>
+          <button class="buy-notice-btn" onclick="openBuyModal('writer-agent-002','WriteBot','✍️',7.99,'Professional content writing in any style.')">💳 Buy WriteBot — $7.99</button>
+          <span class="sign-in-link" id="buy-notice-signin-writer"></span>
+        </div>
+        <div class="agent-use-form hidden" id="use-form-writer">
+        <div class="form-group"><label>Writing Topic *</label><textarea id="w-topic" placeholder="e.g. The future of remote work in 2025"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Style</label><select id="w-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="academic">Academic</option><option value="creative">Creative</option><option value="marketing">Marketing</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Length</label><select id="w-length"><option value="short">Short</option><option value="medium" selected>Medium</option><option value="long">Long</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="w-type"><option value="blog" selected>Blog Post</option><option value="social">Social Media</option><option value="email">Email</option><option value="doc">Documentation</option><option value="ad_copy">Ad Copy</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('writer')" id="btn-writer">▶ Run WriteBot</button>
+        <div class="loading" id="loading-writer"><div>Running WriteBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-writer">
+          <div class="result-header">✍️ WriteBot — Results <span class="result-status" id="rs-status-writer">OK</span></div>
+          <div id="rs-body-writer" style="padding:16px"></div>
+        </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-writer-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://&lt;your-ec2&gt;:8002/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-writer-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-writer-endpoints">
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Live Endpoints — WriteBot</div>
+          <table><thead><tr><th>Method</th><th>Full URL</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-writer-card">http://&lt;ec2-ip&gt;:8002/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+            <tr><td><span class="method post">POST</span></td><td><code id="ep-writer-exec">http://&lt;ec2-ip&gt;:8002/a2a/execute</code></td><td>Execute writing task</td><td>JWT Bearer</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-writer-status">http://&lt;ec2-ip&gt;:8002/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-writer-health">http://&lt;ec2-ip&gt;:8002/health</code></td><td>Health check</td><td>—</td></tr>
+          </tbody></table>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#1a73e8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">🔌 Execute Endpoint (copy &amp; use from any machine)</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="ep-writer-exec-full" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('ep-writer-exec-full')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:8px">Required header: <code style="background:#f0f0f0;padding:2px 5px;border-radius:3px">Authorization: Bearer &lt;your-jwt-token&gt;</code> · Get token from login</div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:6px">Example curl</div>
+        <div class="code-block" id="ep-writer-curl">Loading...</div>
+      </div>
+      <div class="tab-panel" id="tp-writer-caps">
+        <div class="caps"><span class="cap">Blog posts</span><span class="cap">Marketing copy</span><span class="cap">Social media</span><span class="cap">Technical docs</span><span class="cap">Email campaigns</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Receives from:</strong> research-agent-001<br><strong>Can feed into:</strong> analyst-agent-003<br><strong>Output key:</strong> <code>written_content</code></div>
+        <div class="section-label">Your Access Endpoint</div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;color:#555;margin-bottom:6px">Use this URL from any browser or app to call WriteBot:</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="cap-writer-url" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('cap-writer-url')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYST -->
+    <div class="view" id="view-analyst">
+      <div class="agent-header">
+        <div class="agent-big-icon">📊</div>
+        <div class="agent-header-info">
+          <h2>AnalystBot</h2>
+          <div class="sub">
+            <span class="badge">analyst-agent-003</span>
+            <span class="price-tag">$12.99</span>
+            <button class="buy-btn" id="buy-btn-analyst-agent-003" onclick="openBuyModal('analyst-agent-003','AnalystBot','📊',12.99,'Deep analytics, SWOT, trends and insights.')">Buy Agent</button>
+          </div>
+          <div class="desc">Sharp data analyst agent for insights, SWOT analysis, trend forecasting, competitive analysis, and recommendations.</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('analyst','use',event)">▶ Use Agent</div>
+        <div class="tab" onclick="switchTab('analyst','card',event)">📋 AgentCard</div>
+        <div class="tab" onclick="switchTab('analyst','endpoints',event)">🔌 Endpoints</div>
+        <div class="tab" onclick="switchTab('analyst','caps',event)">✅ Capabilities</div>
+      </div>
+      <div class="tab-panel active" id="tp-analyst-use">
+        <div class="buy-notice hidden" id="buy-notice-analyst">
+          <div class="buy-notice-icon">📊</div>
+          <h4>AnalystBot — Not Purchased</h4>
+          <p>You need to purchase AnalystBot to run analysis.<br>One-time purchase · Use immediately after buying.</p>
+          <button class="buy-notice-btn" onclick="openBuyModal('analyst-agent-003','AnalystBot','📊',12.99,'Deep analytics, SWOT, trends and insights.')">💳 Buy AnalystBot — $12.99</button>
+          <span class="sign-in-link" id="buy-notice-signin-analyst"></span>
+        </div>
+        <div class="agent-use-form hidden" id="use-form-analyst">
+        <div class="form-group"><label>Topic / Data to Analyze *</label><textarea id="a-topic" placeholder="e.g. Electric vehicle market in 2025"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Analysis Type</label><select id="a-type"><option value="full" selected>Full Analysis</option><option value="insights">Insights Only</option><option value="swot">SWOT</option><option value="trends">Trends</option><option value="competitive">Competitive</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Output Format</label><select id="a-format"><option value="detailed" selected>Detailed</option><option value="executive">Executive</option><option value="bullets">Bullets</option></select></div>
+        </div>
+        <button class="run-btn" onclick="runSingle('analyst')" id="btn-analyst">▶ Run AnalystBot</button>
+        <div class="loading" id="loading-analyst"><div>Running AnalystBot via A2A...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div></div>
+        <div class="result-box" id="result-analyst">
+          <div class="result-header">📊 AnalystBot — Results <span class="result-status" id="rs-status-analyst">OK</span></div>
+          <div id="rs-body-analyst" style="padding:16px"></div>
+        </div>
+        </div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-card">
+        <p style="font-size:13px;color:#555;margin-bottom:12px">AgentCard at <code>GET http://&lt;your-ec2&gt;:8003/.well-known/agent.json</code></p>
+        <div class="code-block" id="card-analyst-json"></div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-endpoints">
+        <div style="margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Live Endpoints — AnalystBot</div>
+          <table><thead><tr><th>Method</th><th>Full URL</th><th>Description</th><th>Auth</th></tr></thead><tbody>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-analyst-card">http://&lt;ec2-ip&gt;:8003/.well-known/agent.json</code></td><td>AgentCard discovery</td><td>—</td></tr>
+            <tr><td><span class="method post">POST</span></td><td><code id="ep-analyst-exec">http://&lt;ec2-ip&gt;:8003/a2a/execute</code></td><td>Execute analysis task</td><td>JWT Bearer</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-analyst-status">http://&lt;ec2-ip&gt;:8003/a2a/status</code></td><td>Agent status</td><td>—</td></tr>
+            <tr><td><span class="method get">GET</span></td><td><code id="ep-analyst-health">http://&lt;ec2-ip&gt;:8003/health</code></td><td>Health check</td><td>—</td></tr>
+          </tbody></table>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px;margin-bottom:12px">
+          <div style="font-size:11px;font-weight:700;color:#1a73e8;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em">🔌 Execute Endpoint (copy &amp; use from any machine)</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="ep-analyst-exec-full" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('ep-analyst-exec-full')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:8px">Required header: <code style="background:#f0f0f0;padding:2px 5px;border-radius:3px">Authorization: Bearer &lt;your-jwt-token&gt;</code> · Get token from login</div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:#444;margin-bottom:6px">Example curl</div>
+        <div class="code-block" id="ep-analyst-curl">Loading...</div>
+      </div>
+      <div class="tab-panel" id="tp-analyst-caps">
+        <div class="caps"><span class="cap">Pattern recognition</span><span class="cap">SWOT analysis</span><span class="cap">Trend forecasting</span><span class="cap">Competitive analysis</span><span class="cap">Exec summaries</span></div>
+        <div class="section-label" style="margin-top:16px">A2A Orchestration Hints</div>
+        <div class="info-box"><strong>Receives from:</strong> research-agent-001, writer-agent-002<br><strong>Output key:</strong> <code>analysis_result</code></div>
+        <div class="section-label">Your Access Endpoint</div>
+        <div style="background:#f0f4ff;border:1px solid #c5d8fb;border-radius:8px;padding:14px 16px">
+          <div style="font-size:11px;color:#555;margin-bottom:6px">Use this URL from any browser or app to call AnalystBot:</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="cap-analyst-url" style="flex:1;background:#1e1e1e;color:#7ec8e3;border-radius:4px;padding:8px 10px;font-size:12px;word-break:break-all;display:block">Loading...</code>
+            <button onclick="copyUrl('cap-analyst-url')" style="background:#1a73e8;color:white;border:none;border-radius:4px;padding:6px 14px;font-size:12px;cursor:pointer;font-weight:600;white-space:nowrap">📋 Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Research → Write -->
+    <div class="view" id="view-pipeline-rw">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Research → Write</h2>
+          <div class="sub"><span class="badge">2-Agent Pipeline</span></div>
+          <div class="desc">ResearchBot gathers deep information, then WriteBot turns it into polished content.</div>
+        </div>
+      </div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot</div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot</div>
+      </div>
+      <div style="background:white;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px">
+        <div class="form-group"><label>Topic *</label><textarea id="p-rw-topic" placeholder="e.g. The future of renewable energy"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Research Depth</label><select id="p-rw-depth"><option value="standard" selected>Standard</option><option value="deep">Deep</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Writing Style</label><select id="p-rw-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="creative">Creative</option><option value="marketing">Marketing</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="p-rw-ctype"><option value="blog" selected>Blog</option><option value="doc">Documentation</option><option value="email">Email</option></select></div>
+        </div>
+        <button class="run-btn" id="btn-p-rw" onclick="runPipeline('rw')">⚡ Run Pipeline</button>
+        <div class="loading" id="loading-p-rw">
+          <div>Running pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+          <div class="loading-steps-row">
+            <span class="lstep" id="lst-rw-0">🔬 Research</span>
+            <span class="lstep" id="lst-rw-1">✍️ Write</span>
+          </div>
+        </div>
+      </div>
+      <div class="result-box" id="result-p-rw">
+        <div class="result-header">🔗 Research → Write — Results <span class="result-status" id="rps-status-rw">OK</span></div>
+        <div class="result-steps" id="rtabs-rw"></div>
+        <div id="rcontents-rw"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Research → Analyze -->
+    <div class="view" id="view-pipeline-ra">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Research → Analyze</h2>
+          <div class="sub"><span class="badge">2-Agent Pipeline</span></div>
+          <div class="desc">ResearchBot gathers deep data, then AnalystBot extracts sharp insights and recommendations.</div>
+        </div>
+      </div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot</div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot</div>
+      </div>
+      <div style="background:white;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px">
+        <div class="form-group"><label>Topic *</label><textarea id="p-ra-topic" placeholder="e.g. Electric vehicle adoption trends"></textarea></div>
+        <div class="form-group" style="max-width:200px"><label>Analysis Type</label><select id="p-ra-atype"><option value="full" selected>Full</option><option value="swot">SWOT</option><option value="trends">Trends</option><option value="competitive">Competitive</option></select></div>
+        <button class="run-btn" id="btn-p-ra" onclick="runPipeline('ra')">⚡ Run Pipeline</button>
+        <div class="loading" id="loading-p-ra">
+          <div>Running pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+          <div class="loading-steps-row"><span class="lstep" id="lst-ra-0">🔬 Research</span><span class="lstep" id="lst-ra-1">📊 Analyze</span></div>
+        </div>
+      </div>
+      <div class="result-box" id="result-p-ra">
+        <div class="result-header">🔗 Research → Analyze — Results <span class="result-status" id="rps-status-ra">OK</span></div>
+        <div class="result-steps" id="rtabs-ra"></div>
+        <div id="rcontents-ra"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Write → Analyze -->
+    <div class="view" id="view-pipeline-wa">
+      <div class="agent-header">
+        <div class="agent-big-icon">🔗</div>
+        <div class="agent-header-info">
+          <h2>Write → Analyze</h2>
+          <div class="sub"><span class="badge">2-Agent Pipeline</span></div>
+          <div class="desc">WriteBot creates content, then AnalystBot analyzes it for quality and insights.</div>
+        </div>
+      </div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot</div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot</div>
+      </div>
+      <div style="background:white;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px">
+        <div class="form-group"><label>Topic *</label><textarea id="p-wa-topic" placeholder="e.g. Startup funding strategies"></textarea></div>
+        <div style="display:flex;gap:12px">
+          <div class="form-group" style="flex:1"><label>Style</label><select id="p-wa-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="creative">Creative</option></select></div>
+        </div>
+        <button class="run-btn" id="btn-p-wa" onclick="runPipeline('wa')">⚡ Run Pipeline</button>
+        <div class="loading" id="loading-p-wa">
+          <div>Running pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+          <div class="loading-steps-row"><span class="lstep" id="lst-wa-0">✍️ Write</span><span class="lstep" id="lst-wa-1">📊 Analyze</span></div>
+        </div>
+      </div>
+      <div class="result-box" id="result-p-wa">
+        <div class="result-header">🔗 Write → Analyze — Results <span class="result-status" id="rps-status-wa">OK</span></div>
+        <div class="result-steps" id="rtabs-wa"></div>
+        <div id="rcontents-wa"></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE: Full -->
+    <div class="view" id="view-pipeline-full">
+      <div class="agent-header">
+        <div class="agent-big-icon">⚡</div>
+        <div class="agent-header-info">
+          <h2>Full Pipeline — All 3 Agents</h2>
+          <div class="sub"><span class="badge">3-Agent Pipeline</span></div>
+          <div class="desc">Research → Write → Analyze: the complete end-to-end workflow.</div>
+        </div>
+      </div>
+      <div class="orch-pipeline-diagram">
+        <div class="orch-node"><span class="n-icon">🔬</span>ResearchBot</div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">✍️</span>WriteBot</div>
+        <div class="orch-arrow">→</div>
+        <div class="orch-node"><span class="n-icon">📊</span>AnalystBot</div>
+      </div>
+      <div style="background:white;border:1px solid #ddd;border-radius:8px;padding:20px;margin-bottom:16px">
+        <div class="form-group"><label>Topic *</label><textarea id="p-full-topic" placeholder="e.g. AI in healthcare industry 2025"></textarea></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:140px"><label>Research Depth</label><select id="p-full-depth"><option value="standard">Standard</option><option value="deep" selected>Deep</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Writing Style</label><select id="p-full-style"><option value="professional" selected>Professional</option><option value="casual">Casual</option><option value="creative">Creative</option></select></div>
+          <div class="form-group" style="flex:1;min-width:140px"><label>Content Type</label><select id="p-full-ctype"><option value="blog" selected>Blog</option><option value="doc">Documentation</option><option value="email">Email</option></select></div>
+        </div>
+        <button class="run-btn" id="btn-p-full" onclick="runPipeline('full')">⚡ Run Full Pipeline</button>
+        <div class="loading" id="loading-p-full">
+          <div>Running full pipeline...</div><div class="loading-bar"><div class="loading-bar-fill"></div></div>
+          <div class="loading-steps-row">
+            <span class="lstep" id="lst-full-0">🔬 Research</span>
+            <span class="lstep" id="lst-full-1">✍️ Write</span>
+            <span class="lstep" id="lst-full-2">📊 Analyze</span>
+          </div>
+        </div>
+      </div>
+      <div class="result-box" id="result-p-full">
+        <div class="result-header">⚡ Full Pipeline — Results <span class="result-status" id="rps-status-full">OK</span></div>
+        <div class="result-steps" id="rtabs-full"></div>
+        <div id="rcontents-full"></div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /layout -->
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ── Configuration ──────────────────────────────────────────────────────────────
+// Change EC2_HOST to your actual EC2 public IP or domain after deployment
+const EC2_HOST = "13.234.112.155";
+
+  const PORTS = {
+  auth: 8000,
+  orchestrator: 8000,
+  research: 8001,
+  writer: 8002,
+  analyst: 8003
+};
+
+function buildUrl(port, path) {
+  return `http://${EC2_HOST}:${port}${path}`;
+}
+
+// ── Auth State ─────────────────────────────────────────────────────────────────
+// Tokens are stored in sessionStorage (cleared when browser tab closes)
+// NOT in localStorage to reduce XSS persistence risk
+function safeParse(key, fallback) {
+  try { const v = JSON.parse(sessionStorage.getItem(key)); return v !== null ? v : fallback; } catch(_) { return fallback; }
+}
+let authState = {
+  accessToken:     sessionStorage.getItem('am_access')  || null,
+  refreshToken:    sessionStorage.getItem('am_refresh') || null,
+  user:            safeParse('am_user', null),
+  purchasedAgents: (() => { const a = safeParse('am_purchased', []); return Array.isArray(a) ? a : []; })(),
+};
+
+function saveAuthState() {
+  if (authState.accessToken) {
+    sessionStorage.setItem('am_access',    authState.accessToken);
+    sessionStorage.setItem('am_refresh',   authState.refreshToken || '');
+    sessionStorage.setItem('am_user',      JSON.stringify(authState.user || {}));
+    sessionStorage.setItem('am_purchased', JSON.stringify(authState.purchasedAgents || []));
+  } else {
+    sessionStorage.removeItem('am_access');
+    sessionStorage.removeItem('am_refresh');
+    sessionStorage.removeItem('am_user');
+    sessionStorage.removeItem('am_purchased');
+  }
+}
+
+function isLoggedIn() { return !!authState.accessToken; }
+
+function authHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  if (authState.accessToken) h['Authorization'] = `Bearer ${authState.accessToken}`;
+  return h;
+}
+
+// ── JWT Auto-Refresh ──────────────────────────────────────────────────────────
+// Proactively refresh the access token before it expires (every 50 minutes)
+let refreshTimer = null;
+function scheduleTokenRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  if (!authState.refreshToken) return;
+  refreshTimer = setInterval(async () => {
+    try {
+    const resp = await fetch(buildUrl(PORTS.orchestrator, "/auth/refresh"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+    refresh_token: authState.refreshToken
+    })
+  });
+      if (resp.ok) {
+        const data = await resp.json();
+        authState.accessToken = data.access_token;
+        saveAuthState();
+      } else {
+        // Token expired — force re-login
+        doLogout();
+        toast('Session expired — please sign in again', 'err');
+      }
+    } catch (_) {}
+  }, 50 * 60 * 1000); // every 50 minutes
+}
+
+// ── UI: Auth Modal ─────────────────────────────────────────────────────────────
+function showAuthModal()  { document.getElementById('auth-modal').classList.remove('hidden'); }
+function hideAuthModal()  { document.getElementById('auth-modal').classList.add('hidden'); }
+
+function showLogin() {
+  document.getElementById('login-form').style.display  = '';
+  document.getElementById('signup-form').style.display = 'none';
+  clearAuthErr();
+  clearSignupErr();
+}
+function showSignup() {
+  document.getElementById('login-form').style.display  = 'none';
+  document.getElementById('signup-form').style.display = '';
+  clearAuthErr();
+  clearSignupErr();
+}
+
+// Login-form error helpers
+function showAuthErr(msg)  { const el = document.getElementById('auth-err');   if(el){ el.textContent = msg; el.classList.add('show'); } }
+function clearAuthErr()    { const el = document.getElementById('auth-err');   if(el){ el.textContent = '';  el.classList.remove('show'); } }
+
+// Signup-form error helpers
+function showSignupErr(msg){ const el = document.getElementById('signup-err'); if(el){ el.textContent = msg; el.classList.add('show'); } }
+function clearSignupErr()  { const el = document.getElementById('signup-err'); if(el){ el.textContent = '';  el.classList.remove('show'); } }
+
+// Shared email format validator
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function onLoginSuccess(data) {
+  authState.accessToken     = data.access_token;
+  authState.refreshToken    = data.refresh_token;
+  authState.user            = data.user;
+  authState.purchasedAgents = data.purchased_agents || [];
+  saveAuthState();
+  scheduleTokenRefresh();
+  hideAuthModal();
+  updateHeaderUI();
+  updateBuyButtons();
+  toast(`Welcome, ${data.user.username}!`, 'ok');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+
+  // ── Client-side edge-case validation ──────────────────────────
+  if (!email && !pwd)       return showAuthErr('Please enter your email and password.');
+  if (!email)               return showAuthErr('Please enter your email address.');
+  if (email.length > 254)   return showAuthErr('Email address is too long.');
+  if (!isValidEmail(email)) return showAuthErr('Please enter a valid email address (e.g. you@example.com).');
+  if (!pwd)                 return showAuthErr('Please enter your password.');
+  if (pwd.length < 8)       return showAuthErr('Password must be at least 8 characters.');
+  if (pwd.length > 128)     return showAuthErr('Password is too long (max 128 characters).');
+  if (/\s/.test(pwd))       return showAuthErr('Password cannot contain spaces.');
+  // ──────────────────────────────────────────────────────────────
+
+  clearAuthErr();
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+
+  try {
+    let resp;
+    try {
+      resp = await fetch("http://13.126.163.145:8000/auth/login", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pwd }),
+        signal: AbortSignal.timeout(12000)
+      });
+    } catch (networkErr) {
+      // Network failure, DNS failure, timeout, CORS, server down
+      if (networkErr.name === 'TimeoutError' || networkErr.name === 'AbortError') {
+        return showAuthErr('Request timed out. The server may be busy — please try again.');
+      }
+      return showAuthErr('Cannot reach the server. Please check your internet connection and try again.');
+    }
+
+    let data;
+    try { data = await resp.json(); } catch(_) { data = {}; }
+
+    if (!resp.ok) {
+      if (resp.status === 400) {
+        showAuthErr(data.detail || 'Invalid request. Please check your email and password.');
+      } else if (resp.status === 401) {
+        showAuthErr('Incorrect email or password. Please try again.');
+      } else if (resp.status === 403) {
+        showAuthErr('Your account has been disabled. Please contact support.');
+      } else if (resp.status === 404) {
+        showAuthErr('No account found with that email address. Please check or create a new account.');
+      } else if (resp.status === 422) {
+        showAuthErr('Invalid email or password format. Please check your input.');
+      } else if (resp.status === 429) {
+        showAuthErr('Too many sign-in attempts. Please wait a few minutes and try again.');
+      } else if (resp.status >= 500) {
+        showAuthErr('Server error. Please try again in a moment.');
+      } else {
+        showAuthErr(data.detail || `Sign in failed (error ${resp.status}). Please try again.`);
+      }
+      return;
+    }
+
+    // Server returned 200 but no access_token — means wrong credentials or bad response
+    if (!data.access_token) {
+      // Try to surface any message the server sent
+      const serverMsg = data.detail || data.message || data.error || data.msg || '';
+      const msgLower  = serverMsg.toLowerCase();
+      if (msgLower.includes('password') || msgLower.includes('incorrect') || msgLower.includes('invalid') || msgLower.includes('wrong')) {
+        showAuthErr('Incorrect email or password. Please try again.');
+      } else if (msgLower.includes('not found') || msgLower.includes('no account') || msgLower.includes('user')) {
+        showAuthErr('No account found with that email address. Please check or create a new account.');
+      } else if (msgLower.includes('disabled') || msgLower.includes('blocked') || msgLower.includes('banned')) {
+        showAuthErr('Your account has been disabled. Please contact support.');
+      } else if (serverMsg) {
+        showAuthErr(serverMsg);
+      } else {
+        showAuthErr('Incorrect email or password. Please try again.');
+      }
+      return;
+    }
+
+    onLoginSuccess(data);
+
+  } catch (e) {
+    showAuthErr('Something went wrong. Please refresh the page and try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
+}
+
+async function doSignup() {
+  const username = document.getElementById('su-username').value.trim();
+  const email    = document.getElementById('su-email').value.trim();
+  const pwd      = document.getElementById('su-pwd').value;
+
+  // ── Client-side edge-case validation ──────────────────────────
+  if (!username && !email && !pwd) return showSignupErr('Please fill in all fields.');
+  if (!username)               return showSignupErr('Please enter a username.');
+  if (username.length < 3)     return showSignupErr('Username must be at least 3 characters.');
+  if (username.length > 32)    return showSignupErr('Username must be 32 characters or fewer.');
+  if (/^\s|\s$/.test(document.getElementById('su-username').value)) return showSignupErr('Username cannot start or end with a space.');
+  if (!/^[a-zA-Z0-9_.-]+$/.test(username)) return showSignupErr('Username can only contain letters, numbers, _ . and -');
+  if (!email)                  return showSignupErr('Please enter your email address.');
+  if (email.length > 254)      return showSignupErr('Email address is too long.');
+  if (!isValidEmail(email))    return showSignupErr('Please enter a valid email address (e.g. you@example.com).');
+  if (!pwd)                    return showSignupErr('Please enter a password.');
+  if (pwd.length < 8)          return showSignupErr('Password must be at least 8 characters.');
+  if (pwd.length > 128)        return showSignupErr('Password is too long (max 128 characters).');
+  if (/\s/.test(pwd))          return showSignupErr('Password cannot contain spaces.');
+  if (!/[A-Z]/.test(pwd))      return showSignupErr('Password must contain at least 1 uppercase letter (A–Z).');
+  if (!/[0-9]/.test(pwd))      return showSignupErr('Password must contain at least 1 digit (0–9).');
+  if (pwd.toLowerCase().includes(username.toLowerCase()) && username.length >= 4)
+                               return showSignupErr('Password should not contain your username.');
+  // ──────────────────────────────────────────────────────────────
+
+  clearSignupErr();
+
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating account...';
+
+  try {
+    let resp;
+    try {
+      resp = await fetch("http://13.126.163.145:8000/auth/signup", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password: pwd }),
+        signal: AbortSignal.timeout(12000)
+      });
+    } catch (networkErr) {
+      if (networkErr.name === 'TimeoutError' || networkErr.name === 'AbortError') {
+        return showSignupErr('Request timed out. The server may be busy — please try again.');
+      }
+      return showSignupErr('Cannot reach the server. Please check your internet connection and try again.');
+    }
+
+    let data;
+    try { data = await resp.json(); } catch(_) { data = {}; }
+
+    if (!resp.ok) {
+      if (resp.status === 400) {
+        showSignupErr(data.detail || 'Invalid information provided. Please check your inputs.');
+      } else if (resp.status === 409) {
+        const detail = (data.detail || '').toLowerCase();
+        if (detail.includes('email')) {
+          showSignupErr('An account with this email already exists. Try signing in instead.');
+        } else if (detail.includes('username')) {
+          showSignupErr('This username is already taken. Please choose a different one.');
+        } else {
+          showSignupErr('An account with this email or username already exists.');
+        }
+      } else if (resp.status === 422) {
+        showSignupErr('Invalid format detected. Please review your username, email, and password.');
+      } else if (resp.status === 429) {
+        showSignupErr('Too many sign-up attempts. Please wait a few minutes and try again.');
+      } else if (resp.status >= 500) {
+        showSignupErr('Server error. Please try again in a moment.');
+      } else {
+        showSignupErr(data.detail || `Sign up failed (error ${resp.status}). Please try again.`);
+      }
+      return;
+    }
+
+    if (!data.access_token) {
+      return showSignupErr('Unexpected server response. Please try again.');
+    }
+
+    onLoginSuccess(data);
+  } catch(e) {
+    showSignupErr('Something went wrong. Please refresh the page and try again.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create Account';
+  }
+}
+
+async function doLogout() {
+  if (authState.refreshToken) {
+    try {
+      await fetch(buildUrl(PORTS.auth, '/auth/logout'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: authState.refreshToken })
+      });
+    } catch(_) {}
+  }
+  authState = { accessToken: null, refreshToken: null, user: null, purchasedAgents: [] };
+  saveAuthState();
+  if (refreshTimer) clearInterval(refreshTimer);
+  updateHeaderUI();
+  updateBuyButtons();
+  showAuthModal();
+  showLogin();
+  toast('Signed out', 'ok');
+}
+
+function updateHeaderUI() {
+  const userArea  = document.getElementById('header-user-area');
+  const loginBtn  = document.getElementById('header-login-btn');
+  const unameSpan = document.getElementById('header-username');
+  if (isLoggedIn() && authState.user) {
+    userArea.style.display  = 'flex';
+    loginBtn.style.display  = 'none';
+    unameSpan.textContent   = '👤 ' + authState.user.username;
+  } else {
+    userArea.style.display  = 'none';
+    loginBtn.style.display  = 'block';
+  }
+}
+
+// ── Buy Modal ──────────────────────────────────────────────────────────────────
+let buyPending = null;
+
+function openBuyModal(agentId, name, icon, price, desc) {
+  if (!isLoggedIn()) {
+    showAuthModal(); showLogin();
+    toast('Please sign in to purchase agents', 'err');
+    return;
+  }
+  buyPending = { agentId, name, price };
+  document.getElementById('buy-modal-icon').textContent  = icon;
+  document.getElementById('buy-modal-name').textContent  = name;
+  document.getElementById('buy-modal-price').textContent = `$${price.toFixed(2)}`;
+  document.getElementById('buy-modal-desc').textContent  = desc;
+  document.getElementById('buy-form-area').style.display   = '';
+  document.getElementById('buy-success-area').classList.remove('show');
+  document.getElementById('buy-modal').classList.remove('hidden');
+}
+
+function closeBuyModal() {
+  document.getElementById('buy-modal').classList.add('hidden');
+  buyPending = null;
+}
+
+async function confirmBuy() {
+  if (!buyPending || !isLoggedIn()) return;
+
+  const btn = document.querySelector('.buy-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = 'Processing...';
+
+  try {
+    const resp = await fetch("http://13.126.163.145:8000/auth/buy", {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authState.accessToken}`
+      },
+      body: JSON.stringify({
+        agent_id: buyPending.agentId,
+        price_usd: buyPending.price
+      })
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      toast(data.detail || 'Purchase failed', 'err');
+      return;
+    }
+
+    // Use server list if returned, else add purchased agent locally to guarantee UI updates
+    if (data.purchased_agents && Array.isArray(data.purchased_agents) && data.purchased_agents.length > 0) {
+      authState.purchasedAgents = data.purchased_agents;
+    } else {
+      const current = Array.isArray(authState.purchasedAgents) ? authState.purchasedAgents : [];
+      if (!current.includes(buyPending.agentId)) current.push(buyPending.agentId);
+      authState.purchasedAgents = current;
+    }
+    saveAuthState();
+    updateBuyButtons();
+    // ── Set endpoint URL in success panel ─────────────────────────
+    const portMap = { 'research-agent-001':8001, 'writer-agent-002':8002, 'analyst-agent-003':8003 };
+    const ec2h    = EC2_HOST;
+    const execUrl = `http://${ec2h}:${portMap[buyPending.agentId]}/a2a/execute`;
+    const cardUrl = `http://${ec2h}:${portMap[buyPending.agentId]}/.well-known/agent.json`;
+    document.getElementById('buy-success-url').textContent      = execUrl;
+    document.getElementById('buy-success-card-url').textContent = cardUrl;
+    // ──────────────────────────────────────────────────────────────
+    // Show success state
+    document.getElementById('buy-form-area').style.display = 'none';
+    document.getElementById('buy-success-area').classList.add('show');
+    document.getElementById('buy-success-msg').textContent =
+      `${buyPending.name} has been added to your account. You can now use it!`;
+  } catch(e) {
+    toast('Purchase failed — check your connection', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '💳 Buy Now';
+  }
+}
+
+function updateBuyButtons() {
+  const agentMeta = {
+    'research-agent-001': { agent:'research', name:'ResearchBot', icon:'🔬', price:9.99,  desc:'Deep research and synthesis on any topic.' },
+    'writer-agent-002':   { agent:'writer',   name:'WriteBot',   icon:'✍️', price:7.99,  desc:'Professional content writing in any style.' },
+    'analyst-agent-003':  { agent:'analyst',  name:'AnalystBot', icon:'📊', price:12.99, desc:'SWOT analysis, insights, and recommendations.' },
+  };
+  // Only treat agents as purchased when the user is actually logged in
+  const purchased = isLoggedIn() ? (Array.isArray(authState.purchasedAgents) ? authState.purchasedAgents : []) : [];
+  const loggedIn  = isLoggedIn();
+
+  Object.keys(agentMeta).forEach(id => {
+    const m       = agentMeta[id];
+    const btn     = document.getElementById(`buy-btn-${id}`);
+    const notice  = document.getElementById(`buy-notice-${m.agent}`);
+    const form    = document.getElementById(`use-form-${m.agent}`);
+    const siLink  = document.getElementById(`buy-notice-signin-${m.agent}`);
+    const owned   = purchased.includes(id);
+
+    // Buy button in header card
+    if (btn) {
+      if (owned) {
+        btn.textContent = '✓ Owned';
+        btn.className   = 'buy-btn owned';
+        btn.onclick     = null;
+      } else {
+        btn.textContent = 'Buy Agent';
+        btn.className   = 'buy-btn';
+        btn.onclick     = () => openBuyModal(id, m.name, m.icon, m.price, m.desc);
+      }
+    }
+
+    // Use-Agent tab: show form if owned, show buy-notice if not
+    if (notice && form) {
+      if (owned) {
+        notice.classList.add('hidden');
+        form.classList.remove('hidden');
+      } else {
+        notice.classList.remove('hidden');
+        form.classList.add('hidden');
+        // If not logged in, show a sign-in hint inside the notice
+        if (siLink) {
+          siLink.innerHTML = !loggedIn
+            ? `Already purchased? <a onclick="showAuthModal();showLogin()">Sign in to your account</a>`
+            : '';
+        }
+      }
+    }
+  });
+}
+
+const savedKey = sessionStorage.getItem("OPENROUTER_API_KEY");
+
+if (savedKey) {
+  document.getElementById('api-key-input').value = savedKey;
+  document.getElementById('key-saved').style.display = 'inline';
+}
+
+// ── Navigation ─────────────────────────────────────────────────────────────────
+function showAgent(name) { deactivateAll(); document.getElementById('view-'+name).classList.add('active'); document.getElementById('nav-'+name).classList.add('active'); }
+function showPipeline(key) { deactivateAll(); document.getElementById('view-pipeline-'+key).classList.add('active'); document.getElementById('nav-p-'+key).classList.add('active'); }
+function deactivateAll() {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.agent-item,.pipeline-item').forEach(i=>i.classList.remove('active'));
+}
+function switchTab(agent, tab, e) {
+  document.querySelectorAll('#view-'+agent+' .tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#view-'+agent+' .tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tp-'+agent+'-'+tab).classList.add('active');
+  e.currentTarget.classList.add('active');
+}
+
+// ── Agent Cards (displayed without tokens) ─────────────────────────────────────
+const AGENT_CARDS = {
+  research: { schema_version:"1.0", agent_id:"research-agent-001", name:"ResearchBot", icon:"🔬", category:"Research & Analysis", price_usd:9.99, capabilities:["Deep topic research","Multi-source synthesis","Structured reports","Trend analysis"], auth:{type:"bearer",header:"Authorization",note:"Requires JWT"}, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"} },
+  writer:   { schema_version:"1.0", agent_id:"writer-agent-002",   name:"WriteBot",    icon:"✍️", category:"Writing & Content",    price_usd:7.99, capabilities:["Blog posts","Marketing copy","Social media","Technical docs","Email campaigns"], auth:{type:"bearer",header:"Authorization",note:"Requires JWT"}, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"} },
+  analyst:  { schema_version:"1.0", agent_id:"analyst-agent-003",  name:"AnalystBot",  icon:"📊", category:"Data & Analytics",     price_usd:12.99,capabilities:["Pattern recognition","SWOT analysis","Trend forecasting","Competitive analysis"], auth:{type:"bearer",header:"Authorization",note:"Requires JWT"}, a2a_endpoints:{execute:"/a2a/execute",status:"/a2a/status",card:"/.well-known/agent.json"} }
+};
+document.getElementById('card-research-json').textContent = JSON.stringify(AGENT_CARDS.research, null, 2);
+document.getElementById('card-writer-json').textContent   = JSON.stringify(AGENT_CARDS.writer,   null, 2);
+document.getElementById('card-analyst-json').textContent  = JSON.stringify(AGENT_CARDS.analyst,  null, 2);
+
+// ── Port map for direct calls ──────────────────────────────────────────────────
+
+
+// ── Run Single Agent ──────────────────────────────────────────────────────────
+async function runSingle(agent) {
+  if (!isLoggedIn()) {
+    showAuthModal(); showLogin();
+    toast('Please sign in to use agents', 'err');
+    return;
+  }
+
+  const agentMap = {
+    research: 'research-agent-001',
+    writer:   'writer-agent-002',
+    analyst:  'analyst-agent-003'
+  };
+  const agentNames = {
+    research: 'ResearchBot',
+    writer:   'WriteBot',
+    analyst:  'AnalystBot'
+  };
+
+  const agentId = agentMap[agent];
+  const purchased = Array.isArray(authState.purchasedAgents) ? authState.purchasedAgents : [];
+
+  if (!purchased.includes(agentId)) {
+    // This should never be reached since the form is hidden, but guard anyway
+    toast(`Please purchase ${agentNames[agent]} first to use it.`, 'err');
+    return;
+  }
+
+  const inputs = getSingleInputs(agent);
+  if (!inputs) return;
+
+  setLoading(agent, true);
+
+  try {
+    const resp = await fetch("http://13.126.163.145:8000/single", {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        agent_id: agentId,
+        user_input: inputs,
+        user_id: "demo-user"
+      })
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        doLogout();
+        toast('Session expired — please sign in again', 'err');
+        return;
+      }
+      throw new Error(JSON.stringify(data));
+    }
+
+    const result = data.final_output;
+
+    const box = document.getElementById('result-' + agent);
+    const statusEl = document.getElementById('rs-status-' + agent);
+
+    box.classList.add('visible');
+    statusEl.textContent = 'OK';
+    statusEl.className = 'result-status ok';
+
+    document.getElementById('rs-body-' + agent).innerHTML = renderFields(result);
+
+  } catch (e) {
+    console.error(e);
+    toast("Execution failed", "err");
+  } finally {
+    setLoading(agent, false);
+  }
+}
+
+function getSingleInputs(agent) {
+  if (agent === 'research') {
+    const q = document.getElementById('r-query').value.trim();
+    if (!q)          { toast('Please enter a research query.', 'err'); return null; }
+    if (q.length < 3){ toast('Query is too short — please be more specific.', 'err'); return null; }
+    if (q.length > 2000){ toast('Query is too long (max 2000 characters).', 'err'); return null; }
+    return { query: q, depth: document.getElementById('r-depth').value, format: document.getElementById('r-format').value };
+  }
+  if (agent === 'writer') {
+    const t = document.getElementById('w-topic').value.trim();
+    if (!t)          { toast('Please enter a writing topic.', 'err'); return null; }
+    if (t.length < 3){ toast('Topic is too short — please be more specific.', 'err'); return null; }
+    if (t.length > 2000){ toast('Topic is too long (max 2000 characters).', 'err'); return null; }
+    return { topic: t, style: document.getElementById('w-style').value, length: document.getElementById('w-length').value, content_type: document.getElementById('w-type').value };
+  }
+  if (agent === 'analyst') {
+    const t = document.getElementById('a-topic').value.trim();
+    if (!t)          { toast('Please enter a topic or data to analyze.', 'err'); return null; }
+    if (t.length < 3){ toast('Topic is too short — please be more specific.', 'err'); return null; }
+    if (t.length > 2000){ toast('Topic is too long (max 2000 characters).', 'err'); return null; }
+    return { data_or_topic: t, analysis_type: document.getElementById('a-type').value, output_format: document.getElementById('a-format').value };
+  }
+}
+
+function setLoading(id, on) {
+  document.getElementById('loading-'+id).classList.toggle('active', on);
+  document.getElementById('btn-'+id).disabled = on;
+}
+
+// ── Run Pipeline ───────────────────────────────────────────────────────────────
+const PIPELINES = {
+  rw: {
+    steps: [
+      {key:'research',port:8001,icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:document.getElementById('p-rw-depth').value,format:'report'})},
+      {key:'writer',  port:8002,icon:'✍️',name:'WriteBot',    payload:(t,ctx)=>({topic:t,style:document.getElementById('p-rw-style').value,length:'medium',content_type:document.getElementById('p-rw-ctype').value,context:ctx})}
+    ],
+    getTopic:()=>document.getElementById('p-rw-topic').value.trim()
+  },
+  ra: {
+    steps: [
+      {key:'research',port:8001,icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:'deep',format:'report'})},
+      {key:'analyst', port:8003,icon:'📊',name:'AnalystBot',  payload:(t,ctx)=>({data_or_topic:t,analysis_type:document.getElementById('p-ra-atype').value,output_format:'detailed',context:ctx})}
+    ],
+    getTopic:()=>document.getElementById('p-ra-topic').value.trim()
+  },
+  wa: {
+    steps: [
+      {key:'writer', port:8002,icon:'✍️',name:'WriteBot',   payload:(t)=>({topic:t,style:document.getElementById('p-wa-style').value,length:'medium',content_type:'blog'})},
+      {key:'analyst',port:8003,icon:'📊',name:'AnalystBot', payload:(t,ctx)=>({data_or_topic:t,analysis_type:'insights',output_format:'detailed',context:ctx})}
+    ],
+    getTopic:()=>document.getElementById('p-wa-topic').value.trim()
+  },
+  full: {
+    steps: [
+      {key:'research',port:8001,icon:'🔬',name:'ResearchBot', payload:(t)=>({query:t,depth:document.getElementById('p-full-depth').value,format:'report'})},
+      {key:'writer',  port:8002,icon:'✍️',name:'WriteBot',    payload:(t,ctx)=>({topic:t,style:document.getElementById('p-full-style').value,length:'medium',content_type:document.getElementById('p-full-ctype').value,context:ctx})},
+      {key:'analyst', port:8003,icon:'📊',name:'AnalystBot',  payload:(t,ctx)=>({data_or_topic:t,analysis_type:'full',output_format:'detailed',context:ctx})}
+    ],
+    getTopic:()=>document.getElementById('p-full-topic').value.trim()
+  }
+};
+
+async function runPipeline(key) {
+  if (!isLoggedIn()) { showAuthModal(); showLogin(); toast('Please sign in to run pipelines', 'err'); return; }
+
+  const cfg   = PIPELINES[key];
+  const topic = cfg.getTopic();
+
+  if (!topic)          { toast('Please enter a topic to run the pipeline.', 'err'); return; }
+  if (topic.length < 3){ toast('Topic is too short — please be more specific.', 'err'); return; }
+  if (topic.length > 2000){ toast('Topic is too long (max 2000 characters).', 'err'); return; }
+
+  // Check ownership for every agent in this pipeline
+  const agentMap = { research: 'research-agent-001', writer: 'writer-agent-002', analyst: 'analyst-agent-003' };
+  const agentLabels = { research: 'ResearchBot ($9.99)', writer: 'WriteBot ($7.99)', analyst: 'AnalystBot ($12.99)' };
+  const purchased = Array.isArray(authState.purchasedAgents) ? authState.purchasedAgents : [];
+  const missing = cfg.steps.map(s => s.key).filter(k => !purchased.includes(agentMap[k]));
+  if (missing.length > 0) {
+    const names = missing.map(k => agentLabels[k]).join(' and ');
+    toast(`Please purchase ${names} before running this pipeline.`, 'err');
+    return;
+  }
+  document.getElementById('loading-p-'+key).classList.add('active');
+  document.getElementById('btn-p-'+key).disabled = true;
+  const results = []; let acc = {}; let isDemo = false;
+  try {
+  for (let i = 0; i < cfg.steps.length; i++) {
+    const s = cfg.steps[i];
+    const lstEl = document.getElementById('lst-' + key + '-' + i);
+
+    if (lstEl) lstEl.classList.add('active');
+
+    let result;
+
+    try {
+      const pl = i === 0 ? s.payload(topic) : s.payload(topic, acc);
+
+      const agentMap = {
+        research: "research-agent-001",
+        writer: "writer-agent-002",
+        analyst: "analyst-agent-003"
+      };
+
+      const resp = await fetch("http://13.126.163.145:8000/orchestrate", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+        agent_ids: [agentMap[s.key]],
+        user_input: pl,
+        user_id: "demo-user"
+        })
+      });
+
+      const raw = await resp.text();
+
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          doLogout();
+          toast('Session expired — please sign in again', 'err');
+          return;
+        }
+        throw new Error(raw);
+      }
+
+      const data = JSON.parse(raw);
+      result = data.final_output;
+
+    } catch (e) {
+      console.error(e);
+      toast("Pipeline failed", "err");
+      return;
+    }
+
+    acc = result;
+    results.push({ ...s, result });
+
+    if (lstEl) {
+      lstEl.classList.remove('active');
+      lstEl.classList.add('done');
+    }
+  }
+  
+  // ✅ RESULT UI (THIS WAS YOUR ERROR AREA)
+  const box = document.getElementById('result-p-' + key);
+  const statusEl = document.getElementById('rps-status-' + key);
+
+  box.classList.add('visible');
+  statusEl.textContent = 'OK';
+  statusEl.className = 'result-status ok';
+  
+  document.getElementById('rtabs-' + key).innerHTML =
+    results.map((r, i) =>
+      `<div class="result-step-tab ${i === 0 ? 'active' : ''}" onclick="switchRTab('${key}', ${i}, ${results.length})">${r.name}</div>`
+    ).join('');
+
+  document.getElementById('rcontents-' + key).innerHTML =
+    results.map((r, i) =>
+      `<div class="result-step-content ${i === 0 ? 'active' : ''}" id="rc-${key}-${i}">
+         ${renderFields(r.result)}
+       </div>`
+    ).join('');
+      
+} catch (e) {
+  console.error(e);
+  toast("Pipeline execution failed", "err");
+} finally {
+  document.getElementById('loading-p-' + key).classList.remove('active');
+  document.getElementById('btn-p-' + key).disabled = false;
+}}
+
+function switchTab(key, idx, total) {
+  for (let i=0;i<total;i++) {
+    document.querySelectorAll(`#rtabs-${key} .result-step-tab`)[i]?.classList.toggle('active',i===idx);
+    document.getElementById(`rc-${key}-${i}`)?.classList.toggle('active',i===idx);
+  }
+}
+
+// ── Render Fields ──────────────────────────────────────────────────────────────
+function renderFields(r) {
+  if (!r) return '<p style="color:#888">No result</p>';
+  let h = '';
+  if (r.title)                    h+=`<div class="result-section"><div class="result-section-title">Title</div><div class="result-text" style="font-weight:700;font-size:15px">${esc(r.title)}</div></div>`;
+  if (r.meta_description)         h+=`<div class="result-section"><div class="result-section-title">Meta Description</div><div class="result-text" style="color:#666">${esc(r.meta_description)}</div></div>`;
+  if (r.summary)                  h+=`<div class="result-section"><div class="result-section-title">Summary</div><div class="result-text">${esc(r.summary)}</div></div>`;
+  if (r.executive_summary)        h+=`<div class="result-section"><div class="result-section-title">Executive Summary</div><div class="result-text">${esc(r.executive_summary)}</div></div>`;
+  if (r.content)                  h+=`<div class="result-section"><div class="result-section-title">Content${r.word_count?' (~'+r.word_count+' words)':''}</div><div class="result-text">${esc(r.content)}</div></div>`;
+  if (r.key_findings?.length)     h+=`<div class="result-section"><div class="result-section-title">Key Findings</div><div class="result-list">${r.key_findings.map(f=>`<div class="result-list-item"><span class="bullet">◆</span>${esc(f)}</div>`).join('')}</div></div>`;
+  if (r.key_insights?.length)     h+=`<div class="result-section"><div class="result-section-title">Key Insights</div><div class="result-list">${r.key_insights.map(f=>`<div class="result-list-item"><span class="bullet">◆</span>${esc(f)}</div>`).join('')}</div></div>`;
+  if (r.recommendations?.length)  h+=`<div class="result-section"><div class="result-section-title">Recommendations</div><div class="result-list">${r.recommendations.map(f=>`<div class="result-list-item"><span class="bullet tip">→</span>${esc(f)}</div>`).join('')}</div></div>`;
+  if (r.risk_factors?.length)     h+=`<div class="result-section"><div class="result-section-title">Risk Factors</div><div class="result-list">${r.risk_factors.map(f=>`<div class="result-list-item"><span class="bullet warn">⚠</span>${esc(f)}</div>`).join('')}</div></div>`;
+  if (r.visualization_suggestions?.length) h+=`<div class="result-section"><div class="result-section-title">Visualization Suggestions</div><div class="result-list">${r.visualization_suggestions.map(f=>`<div class="result-list-item"><span class="bullet" style="color:#888">📈</span>${esc(f)}</div>`).join('')}</div></div>`;
+  return h || `<div class="code-block" style="font-size:12px">${JSON.stringify(r,null,2)}</div>`;
+}
+
+// XSS prevention — escape user-provided content before inserting to DOM
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s || '');
+  return d.innerHTML;
+}
+
+// ── Demo Mode ──────────────────────────────────────────────────────────────────
+async function demoSingle(agent, inputs) {
+  await new Promise(r=>setTimeout(r,1200));
+  const t = inputs.query||inputs.topic||inputs.data_or_topic||'the topic';
+  if(agent==='research') return {title:`Research: ${t}`,summary:`[DEMO MODE — backend not running or no API key]\n\nSimulated output for "${t}". Start research1.py, writer2.py, analyst3.py on ports 8001–8003 and save your LLM API key.`,key_findings:[`${t} shows strong growth momentum`,`Multiple stakeholders actively investing`,`Key challenges: scalability, regulation, talent`,`Disruption expected within 2–3 years`],raw_text:""};
+  if(agent==='writer')   return {title:`The Complete Guide to ${t}`,content:`[DEMO MODE]\n\n${t} is reshaping how organizations operate...\n\n→ Start backend agents + save your API key for live content.`,word_count:512,meta_description:`Everything you need to know about ${t}.`};
+  if(agent==='analyst')  return {executive_summary:`[DEMO MODE] "${t}" presents a compelling opportunity with manageable risk.`,key_insights:[`${t} is at a clear inflection point`,`First-mover advantages still available`],recommendations:[`Build capabilities before market consolidates`,`Form strategic partnerships`],risk_factors:[`Adoption may lag projections`],visualization_suggestions:[`Market size waterfall (2023–2028)`,`Competitive positioning matrix`]};
+}
+
+// ── Error Helpers ──────────────────────────────────────────────────────────────
+function toastAgentFailure(port, err) {
+  let msg = (err && err.message) ? String(err.message) : String(err || '');
+  try { const j=JSON.parse(msg); if(j.detail!=null) msg=typeof j.detail==='string'?j.detail:JSON.stringify(j.detail); } catch(_){}
+  const short = msg.length>280 ? msg.slice(0,277)+'…' : msg;
+  if (short && (short.includes('OpenRouter')||short.includes('Groq')||short.includes('API key')||/HTTP \d{3}/.test(short))) return toast(short,'err');
+  toast('Cannot reach agent on port '+port+' — start the Python server. '+short.slice(0,100),'err');
+}
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show '+type;
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+
+// ── Copy URL helper ────────────────────────────────────────────────────────────
+function copyUrl(elId) {
+  const el  = document.getElementById(elId);
+  const txt = el ? el.textContent.trim() : '';
+  if (!txt || txt === 'Loading...') { toast('URL not ready yet', 'err'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(() => toast('Copied!', 'ok')).catch(() => fallbackCopy(txt));
+  } else { fallbackCopy(txt); }
+}
+function fallbackCopy(txt) {
+  const ta = document.createElement('textarea');
+  ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); toast('Copied!', 'ok'); } catch(_) { toast('Copy failed — select manually', 'err'); }
+  document.body.removeChild(ta);
+}
+
+// ── Fill all endpoint URL placeholders with real EC2 host ─────────────────────
+function initEndpointUrls() {
+  const h = EC2_HOST;
+  const agents = [
+    { key:'research', port:8001, body:'{"query":"AI trends 2025","depth":"standard","format":"report"}' },
+    { key:'writer',   port:8002, body:'{"topic":"Future of AI","style":"professional","length":"medium","content_type":"blog"}' },
+    { key:'analyst',  port:8003, body:'{"data_or_topic":"EV market 2025","analysis_type":"full","output_format":"detailed"}' },
+  ];
+  agents.forEach(a => {
+    const base = `http://${h}:${a.port}`;
+    const exec = `${base}/a2a/execute`;
+    // Table cells
+    const setT = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    setT(`ep-${a.key}-card`,   `${base}/.well-known/agent.json`);
+    setT(`ep-${a.key}-exec`,   exec);
+    setT(`ep-${a.key}-status`, `${base}/a2a/status`);
+    setT(`ep-${a.key}-health`, `${base}/health`);
+    // Copyable execute URL boxes
+    setT(`ep-${a.key}-exec-full`, exec);
+    setT(`cap-${a.key}-url`,      exec);
+    // Curl example
+    const curlEl = document.getElementById(`ep-${a.key}-curl`);
+    if (curlEl) curlEl.textContent =
+      `curl -X POST ${exec} \\\n  -H "Authorization: Bearer <your-jwt-token>" \\\n  -H "Content-Type: application/json" \\\n  -d '${a.body}'`;
+  });
+}
+initEndpointUrls();
+
+document.getElementById('login-pwd').addEventListener('keydown',  e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('login-email').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('su-pwd').addEventListener('keydown',     e=>{ if(e.key==='Enter') doSignup(); });
+
+// ── Initialise ─────────────────────────────────────────────────────────────────
+updateHeaderUI();
+updateBuyButtons();
+if (!isLoggedIn()) {
+  showAuthModal();
+} else {
+  scheduleTokenRefresh();
+}
+</script>
+</body>
+</html>

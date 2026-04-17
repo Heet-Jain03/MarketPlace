@@ -321,7 +321,7 @@ async def execute_get(
             const depth = document.getElementById("depth").value;
             const format = document.getElementById("format").value;
 
-            const res = await fetch(`/a2a/execute?query=${encodeURIComponent(query)}&depth=${depth}&format=${format}`);
+            const res = await fetch(`?query=${encodeURIComponent(query)}&depth=${depth}&format=${format}`);
             const data = await res.json();
 
             document.getElementById("output").innerHTML = `
